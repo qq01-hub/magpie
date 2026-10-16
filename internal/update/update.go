@@ -377,7 +377,7 @@ func Homebrew(exe string) bool {
 // "The system cannot find the path specified"), it is the path the binary
 // was started from, which still names it.
 func Executable() (string, error) {
-	exe, err := os.Executable()
+	exe, err := currentExe()
 	if err != nil {
 		return "", err
 	}
