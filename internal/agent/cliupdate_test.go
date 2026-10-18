@@ -205,6 +205,15 @@ func TestHowInstalled(t *testing.T) {
 	if u := howInstalled(cliSpecs["claude"], cc); u == nil || !u.cask || !reflect.DeepEqual(u.cmd, []string{brew, "upgrade", "--cask", "claude-code"}) {
 		t.Errorf("brew cask: %+v", u)
 	}
+	// the latest channel's cask, which Claude Code itself tells a brew user
+	// to move to (brew uninstall --cask claude-code && brew install --cask
+	// claude-code@latest); claude-code is the stable channel
+	os.Remove(cc)
+	file(t, filepath.Join(brewDir, "Caskroom/claude-code@latest/2.1.302/claude"), "")
+	ccLatest := link(t, "../Caskroom/claude-code@latest/2.1.302/claude", filepath.Join(brewDir, "bin/claude"))
+	if u := howInstalled(cliSpecs["claude"], ccLatest); u == nil || !u.cask || u.pkg != "claude-code@latest" || !reflect.DeepEqual(u.cmd, []string{brew, "upgrade", "--cask", "claude-code@latest"}) {
+		t.Errorf("brew cask claude-code@latest: %+v", u)
+	}
 	file(t, filepath.Join(brewDir, "Caskroom/atomcode/5.2.1/atomcode"), "")
 	atomcode := link(t, "../Caskroom/atomcode/5.2.1/atomcode", filepath.Join(brewDir, "bin/atomcode"))
 	if u := howInstalled(cliSpecs["atomcode"], atomcode); u == nil || !u.cask || !reflect.DeepEqual(u.cmd, []string{brew, "upgrade", "--cask", "atomcode"}) {
