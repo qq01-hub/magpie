@@ -102,6 +102,30 @@ func writeT(t *testing.T, p, body string) {
 	}
 }
 
+// agentHostCacheDir is where VS Code's chat keeps a downloaded copy of an
+// agent's program on this machine: its user data folder's agent-host/
+// sdk-cache/<id>/<version>/<platform>.
+func agentHostCacheDir(home, id, version, platform string) string {
+	root := filepath.Join(home, ".config")
+	if runtime.GOOS == "darwin" {
+		root = filepath.Join(home, "Library", "Application Support")
+	}
+	if runtime.GOOS == "windows" {
+		root = filepath.Join(home, "AppData", "Roaming")
+	}
+	return filepath.Join(root, "Code", "agent-host", "sdk-cache", id, version, platform)
+}
+
+// agentHostCacheT leaves a whole copy of the agent's program in VS Code's
+// chat cache, as the chat's downloader does: the program inside the
+// vendor's package, and the .complete it writes once the copy is whole.
+func agentHostCacheT(t *testing.T, home, id, version, platform string) {
+	t.Helper()
+	d := agentHostCacheDir(home, id, version, platform)
+	mkdirT(t, filepath.Join(d, "node_modules", "@anthropic-ai", "claude-agent-sdk-linux-x64"))
+	writeT(t, filepath.Join(d, ".complete"), "")
+}
+
 // #2173 (SkyTodInfi): Hermes uninstalled, ~/.hermes/config.yaml left with
 // 37 bytes, no hermes anywhere: listed, as gone. Its own install.sh's
 // checkout, or hermes in ~/.local/bin, is Hermes installed.
@@ -171,6 +195,17 @@ func TestCLIMissingSharedFolders(t *testing.T) {
 		{"claude", ".claude", func(t *testing.T, home, _ string) {
 			writeT(t, filepath.Join(home, ".claude", "local", exe("claude")), "")
 		}, false},
+		// VS Code's chat downloaded Claude Code's program into its own
+		// cache and runs that: no claude on PATH, none of the installer's
+		// folders, and its settings are read all the same
+		{"claude", ".claude", func(t *testing.T, home, _ string) {
+			agentHostCacheT(t, home, "claude", "0.3.281", "linux-x64")
+		}, false},
+		// a download that never finished leaves the folder but no .complete,
+		// which the chat itself reads as not installed
+		{"claude", ".claude", func(t *testing.T, home, _ string) {
+			mkdirT(t, filepath.Join(agentHostCacheDir(home, "claude", "0.3.281", "linux-x64")))
+		}, true},
 		{"claude", ".claude", func(t *testing.T, home, _ string) {
 			mkdirT(t, jetBrainsDirFor(home))
 		}, false},
@@ -188,6 +223,9 @@ func TestCLIMissingSharedFolders(t *testing.T) {
 		}, false},
 		{"codex", ".codex", func(t *testing.T, home, _ string) {
 			mkdirT(t, filepath.Join(home, ".codex", "packages", "standalone"))
+		}, false},
+		{"codex", ".codex", func(t *testing.T, home, _ string) {
+			agentHostCacheT(t, home, "codex", "0.157.0", "linux-x64")
 		}, false},
 		{"codex", ".codex", func(t *testing.T, home, _ string) {
 			mkdirT(t, zedAgentsDirFor(home))
@@ -217,6 +255,9 @@ func TestCLIMissingSharedFolders(t *testing.T) {
 		t.Setenv("APPDATA", filepath.Join(home, "AppData", "Roaming"))
 		t.Setenv("LOCALAPPDATA", filepath.Join(home, "AppData", "Local"))
 		t.Setenv("XDG_CACHE_HOME", filepath.Join(home, ".cache"))
+		// testenv's own config root belongs to its home, not this case's:
+		// the agent host's cache is read under this one
+		t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, ".config"))
 		t.Setenv("PATH", t.TempDir())
 		apps := noApps(t)
 		dir := filepath.Join(home, c.folder)

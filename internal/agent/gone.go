@@ -6,6 +6,7 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/yetone/magpie/internal/appdir"
 	"github.com/yetone/magpie/internal/claudecode"
 	"github.com/yetone/magpie/internal/desktopdir"
 	"github.com/yetone/magpie/internal/proc"
@@ -84,6 +85,13 @@ func (a *Agent) cliHeld() (held, known bool) {
 		if _, err := os.Stat(p); err == nil {
 			return true, true
 		}
+	}
+	// an editor's chat runs the agent's program from a copy it downloaded
+	// itself, with no CLI on PATH and no installer's folder: VS Code's chat
+	// keeps Claude Code's and Codex's under agent-host's cache, and reads
+	// the folder's .complete as its own sign that the copy is whole
+	if agentHostSDK(home, a.ID) {
+		return true, true
 	}
 	// On Windows the programs that read a shared folder can't all be
 	// told: a Store app, an editor run portable or with its extensions
@@ -203,6 +211,82 @@ func codexOnlyCindys(a *Agent, home string) bool {
 		return false
 	}
 	return !jetBrainsHere(home) && !zedAgentsHere(home)
+}
+
+// agentHostSDK reports whether an editor's chat has downloaded the agent's
+// program and left it in its cache: VS Code's chat keeps Claude Code's and
+// Codex's under agent-host/sdk-cache/<id>/<version>/<platform>/, the
+// program inside the copy of its package the vendor publishes, and writes
+// .complete beside it once the copy is whole (agentHostMain.js,
+// AgentSdkDownloader). That program is what its chat runs, so an agent
+// whose CLI is nowhere else is installed here, not a folder left behind
+// (#2177): a user who installed neither Claude Code nor Codex still had
+// both in the editor's chat, and magpie showed "CLI not found" with their
+// settings hidden.
+//
+// The cache is VS Code's, under its user data folder: ~/.config/Code on
+// Linux, Application Support/Code on a Mac, %APPDATA%\Code on Windows.
+func agentHostSDK(home, id string) bool {
+	dirs := agentHostSdkDirs(home, id)
+	for _, d := range dirs {
+		if isFile(filepath.Join(d, ".complete")) {
+			return true
+		}
+	}
+	return false
+}
+
+// agentHostSdkDirs are the cached copies of an agent's program under each
+// editor's user data folder that has any: the newest version first is not
+// needed, one whole copy is enough.
+func agentHostSdkDirs(home, id string) []string {
+	var roots []string
+	switch runtime.GOOS {
+	case "darwin":
+		roots = []string{filepath.Join(home, "Library", "Application Support")}
+	case "windows":
+		for _, v := range []string{"APPDATA", "LOCALAPPDATA"} {
+			if x := appdir.Getenv(v); x != "" {
+				roots = append(roots, x)
+			}
+		}
+		if len(roots) == 0 {
+			roots = []string{filepath.Join(home, "AppData", "Roaming")}
+		}
+	default:
+		x := appdir.Getenv("XDG_CONFIG_HOME")
+		if x == "" {
+			x = filepath.Join(home, ".config")
+		}
+		roots = []string{x}
+	}
+	var out []string
+	for _, root := range roots {
+		// VS Code's own folder, and Insiders' beside it; VSCodium's chat is
+		// Copilot Chat's extension and keeps its cache the same way
+		for _, name := range []string{"Code", "Code - Insiders", "VSCodium"} {
+			base := filepath.Join(root, name, "agent-host", "sdk-cache", id)
+			vs, err := os.ReadDir(base)
+			if err != nil {
+				continue
+			}
+			for _, v := range vs {
+				if !v.IsDir() {
+					continue
+				}
+				ps, err := os.ReadDir(filepath.Join(base, v.Name()))
+				if err != nil {
+					continue
+				}
+				for _, p := range ps {
+					if p.IsDir() {
+						out = append(out, filepath.Join(base, v.Name(), p.Name()))
+					}
+				}
+			}
+		}
+	}
+	return out
 }
 
 // extensionHere reports whether an editor here has the extension id
