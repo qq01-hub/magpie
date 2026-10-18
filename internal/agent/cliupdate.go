@@ -127,7 +127,9 @@ type cliSpec struct {
 }
 
 var cliSpecs = map[string]cliSpec{
-	"claude": {npm: []string{"@anthropic-ai/claude-code"}, brew: []string{"claude-code"}, scripts: true,
+	// Homebrew's claude-code cask is the stable channel, claude-code@latest
+	// the latest, which Claude Code tells a brew user to move to
+	"claude": {npm: []string{"@anthropic-ai/claude-code"}, brew: []string{"claude-code", "claude-code@latest"}, scripts: true,
 		self: func(bin, real string) []string {
 			// ~/.local/bin/claude → ~/.local/share/claude/versions/2.1.3;
 			// on Windows the binary itself, in ~/.local/bin
