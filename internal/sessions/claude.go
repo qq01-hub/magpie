@@ -82,6 +82,12 @@ func claudeLine(s *state, b []byte, main bool) {
 		case "relocated":
 			ccRelocated(s, b, main)
 			return
+		case "fork-context-ref":
+			// a fork subagent's file: the reply before its first prompt
+			// is its parent's, copied
+			s.ForkHead = true
+			s.saw(tsAt(b, true), main)
+			return
 		default:
 			s.saw(tsAt(b, true), main)
 			return
@@ -106,8 +112,11 @@ func claudeLine(s *state, b []byte, main bool) {
 		s.saw(at, main)
 		ccWhere(s, b)
 		ccLink(s, h, b, main)
-		ccReply(s, at, msg, b, main)
+		if !s.ForkHead {
+			ccReply(s, at, msg, b, main)
+		}
 	case bytes.HasPrefix(msg, ccRole) && typeAfter(msg, ccRole) == "user":
+		s.ForkHead = false
 		if (main || !s.more().TaskRead) && !ccToolResult(msg) {
 			// a prompt, or something Claude Code put in: read whole
 			claudeFull(s, b, main)
@@ -415,6 +424,7 @@ func claudeFull(s *state, b []byte, main bool) {
 			s.own().Named = title(l.Summary)
 		}
 	case "user":
+		s.ForkHead = false
 		if !main && !l.IsMeta && !s.more().TaskRead {
 			// the subagent's task, as ccTask reads it
 			s.own().Task, s.own().TaskRead = untagged(ccText(l.Message.Content)), true
@@ -432,6 +442,9 @@ func claudeFull(s *state, b []byte, main bool) {
 			}
 		}
 	case "assistant":
+		if s.ForkHead {
+			return
+		}
 		m := ccUsageState(&s.Claude).message(l.Message.ID, string(l.RequestID))
 		defer s.Claude.finish(m)
 		var blocks []struct {
