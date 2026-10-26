@@ -249,6 +249,10 @@ type state struct {
 	MsgModel string `json:"msg_model,omitempty"`
 	MsgUse   Tokens `json:"msg_use"`
 	MsgDay   string `json:"msg_day,omitempty"`
+	// Claude Code: in a fork subagent's file, between its fork-context-ref
+	// line and its first prompt, where the reply that started the fork is
+	// copied from the parent's file, which counts it
+	ForkHead bool `json:"fork_head,omitempty"`
 	// Codex: the model in use, and its running total (input with cache) last seen
 	Model string  `json:"model,omitempty"`
 	Total *Tokens `json:"total,omitempty"`
@@ -1531,7 +1535,8 @@ const cacheVersion = 29
 // workbuddy 1, workbuddy-ai 1, codebuddy 1: a session's first prompt is
 // its <user_query> when WorkBuddy wrote it in one block with its context
 // (wbTyped).
-var parseVersions = map[string]int{"codex": 3, "zcode": 1, "dsh": 3, "antigravity": 3, "agy": 2, "pi": 1, "raft": 1, "cindy": 1, "workbuddy": 1, "workbuddy-ai": 1, "codebuddy": 1}
+// claude 1: a fork subagent's copy of its parent's reply (ForkHead).
+var parseVersions = map[string]int{"codex": 3, "zcode": 1, "dsh": 3, "antigravity": 3, "agy": 2, "pi": 1, "raft": 1, "cindy": 1, "workbuddy": 1, "workbuddy-ai": 1, "codebuddy": 1, "claude": 1}
 
 type cacheFile struct {
 	Version int    `json:"version"`
