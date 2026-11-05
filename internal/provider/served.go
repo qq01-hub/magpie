@@ -79,7 +79,16 @@ func servedPath() string { return filepath.Join(filepath.Dir(Path()), "served.js
 // key's id ("deepseek#k1a2b3c"), else the provider.
 func ServedID(p Provider) string {
 	if a := p.Account; a != nil {
-		return loginProvider(Login{Agent: a.Agent}) + "@" + strings.ToLower(a.User)
+		who := loginProvider(Login{Agent: a.Agent})
+		if p.IsPlugin() {
+			// a plugin's accounts are all of the agent "plugin", so their
+			// ids would share that agent's name and no card would find
+			// them: a plugin's card is the plugin's own id, which names
+			// them instead (#1516: the menu bar's "account in use" follows
+			// the one that answered last)
+			who = p.ID
+		}
+		return who + "@" + strings.ToLower(a.User)
 	}
 	if p.Key != "" {
 		return p.ID + "#" + KeyID(p.Key)
