@@ -62,6 +62,73 @@ func TestQuotasLastServed(t *testing.T) {
 
 func ptr(t time.Time) *time.Time { return &t }
 
+// A plugin's accounts are all of the agent "plugin", so the id an answer
+// is noted under has to be the plugin's own: a card is the plugin's id, and
+// a card that finds no answer keeps the first one, which is not the account
+// in use (the menu bar's "minimax-code|*" stayed on an account nothing had
+// answered for while another one answered).
+func TestPluginAccountAnswerIsFoundByItsCard(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	at := time.Now().Truncate(time.Second)
+	mini := PluginForTest("minimax-code", "minimax-code")
+	mini.Account.User = "MiniMax919305"
+	NoteServed(mini, at)
+	FlushServed()
+	// the file names the plugin's own id
+	var m map[string]time.Time
+	b, err := os.ReadFile(servedPath())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal(b, &m); err != nil {
+		t.Fatal(err, string(b))
+	}
+	if _, ok := m["minimax-code@minimax919305"]; !ok {
+		t.Fatalf("not noted under the plugin's own id: %s", b)
+	}
+	// and the card of that account is told, the other one's not
+	got := cardsServed([]SubscriptionQuota{
+		{Provider: "minimax-code", User: "491933885684846594"},
+		{Provider: "minimax-code", User: "MiniMax919305"},
+	}, nil, nil, LastServed())
+	if got[0].LastServedAt != nil {
+		t.Errorf("%q: lastServedAt %v, want none", got[0].User, got[0].LastServedAt)
+	}
+	if got[1].LastServedAt == nil || !got[1].LastServedAt.Equal(at.UTC()) {
+		t.Errorf("%q: lastServedAt %v, want %v", got[1].User, got[1].LastServedAt, at.UTC())
+	}
+}
+
+// Each plugin's account is told of its own answers: two plugins with an
+// account of the same name are two accounts, each with its own card.
+func TestPluginAccountsAreToldApart(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	at := time.Now().Truncate(time.Second)
+	mini := PluginForTest("minimax-code", "minimax-code")
+	mini.Account.User = "same@x.y"
+	other := PluginForTest("workbuddy", "workbuddy")
+	other.Account.User = "same@x.y"
+	NoteServed(mini, at)
+	NoteServed(other, at.Add(-time.Hour))
+	FlushServed()
+	got := cardsServed([]SubscriptionQuota{
+		{Provider: "minimax-code", User: "same@x.y"},
+		{Provider: "workbuddy", User: "same@x.y"},
+	}, nil, nil, LastServed())
+	if got[0].LastServedAt == nil || !got[0].LastServedAt.Equal(at.UTC()) {
+		t.Errorf("minimax-code: lastServedAt %v, want %v", got[0].LastServedAt, at.UTC())
+	}
+	if got[1].LastServedAt == nil || !got[1].LastServedAt.Equal(at.Add(-time.Hour).UTC()) {
+		t.Errorf("workbuddy: lastServedAt %v, want %v", got[1].LastServedAt, at.Add(-time.Hour).UTC())
+	}
+}
+
 // The Usage page's cards are told it too (okingkee on X): the page and the
 // tray panel show the account that answered last in full, and the menu
 // bar's "account in use" follows it. A remote magpie's card is that one's,
