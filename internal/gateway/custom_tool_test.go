@@ -17,17 +17,21 @@ import (
 // away, the message as #2656's reporter got it from api.deepseek.com.
 const deepSeekCustomRefusal = `{"error":{"message":"Unsupported custom tool: 'exec'. Only 'apply_patch' is supported.","type":"invalid_request_error","param":null,"code":null}}`
 
+const vllmGrammarRefusal = `{"error":{"message":"Custom tools with a grammar format are not supported; only free-form text custom tools are accepted.","type":"invalid_request_error","param":"tools","code":null}}`
+
 // customExecRequest is #2656's request: Codex's exec offered as a custom
 // tool, nothing called yet.
 const customExecRequest = `{"model":%q,"stream":%t,"input":[{"role":"user","content":"Return ok."}],` +
 	`"tools":[{"type":"custom","name":"exec","description":"Execute source text.","format":{"type":"text"}}]}`
 
 // customUpstream is a Responses API that, like DeepSeek's, takes no custom
-// tool but apply_patch, and calls exec when it is offered as a function.
+// tool but apply_patch, or like vLLM's, refuses grammar custom tools.
+// It calls exec when it is offered as a function.
 type customUpstream struct {
-	mu    sync.Mutex
-	asked []map[string]any
-	paths []string
+	mu      sync.Mutex
+	asked   []map[string]any
+	paths   []string
+	grammar bool
 }
 
 func (u *customUpstream) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -40,10 +44,16 @@ func (u *customUpstream) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	u.mu.Unlock()
 	tools, _ := q["tools"].([]any)
 	for _, t := range tools {
-		if tm, _ := t.(map[string]any); tm["type"] == "custom" && tm["name"] != "apply_patch" {
+		tm, _ := t.(map[string]any)
+		format, _ := tm["format"].(map[string]any)
+		if tm["type"] == "custom" && ((!u.grammar && tm["name"] != "apply_patch") || (u.grammar && format["type"] == "grammar")) {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(400)
-			io.WriteString(w, deepSeekCustomRefusal)
+			if u.grammar {
+				io.WriteString(w, vllmGrammarRefusal)
+			} else {
+				io.WriteString(w, deepSeekCustomRefusal)
+			}
 			return
 		}
 	}
@@ -69,12 +79,26 @@ func (u *customUpstream) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // runs, exec's name kept. The next turn goes translated at once, and an
 // upstream that takes custom tools still gets them as sent.
 func TestCustomToolTranslatedWhereRefused(t *testing.T) {
-	for _, stream := range []bool{false, true} {
-		t.Run(fmt.Sprintf("stream %t", stream), func(t *testing.T) {
+	for _, tt := range []struct {
+		name    string
+		stream  bool
+		grammar bool
+	}{
+		{"text", false, false},
+		{"text stream", true, false},
+		{"grammar", false, true},
+		{"grammar stream", true, true},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			stream := tt.stream
+			request := customExecRequest
+			if tt.grammar {
+				request = strings.Replace(request, `"type":"text"`, `"type":"grammar","syntax":"lark","definition":"start: /.+/"`, 1)
+			}
 			fresh(t)
 			noRests()
 			t.Cleanup(noRests)
-			refusing := &customUpstream{}
+			refusing := &customUpstream{grammar: tt.grammar}
 			ds := httptest.NewServer(refusing)
 			t.Cleanup(ds.Close)
 			var taking []map[string]any
@@ -101,7 +125,7 @@ func TestCustomToolTranslatedWhereRefused(t *testing.T) {
 			s := New()
 			ask := func(model string) *httptest.ResponseRecorder {
 				rec := httptest.NewRecorder()
-				s.Handler().ServeHTTP(rec, httptest.NewRequest("POST", "/v1/responses", strings.NewReader(fmt.Sprintf(customExecRequest, model, stream))))
+				s.Handler().ServeHTTP(rec, httptest.NewRequest("POST", "/v1/responses", strings.NewReader(fmt.Sprintf(request, model, stream))))
 				return rec
 			}
 			rec := ask("ds/deepseek-flash")
@@ -115,6 +139,9 @@ func TestCustomToolTranslatedWhereRefused(t *testing.T) {
 			props, _ := tool["parameters"].(map[string]any)["properties"].(map[string]any)
 			if tool["type"] != "function" || tool["name"] != "exec" || props["input"] == nil {
 				t.Fatalf("asked again with %v", tool)
+			}
+			if tt.grammar && !strings.Contains(fmt.Sprint(tool["description"]), "lark grammar:\nstart: /.+/") {
+				t.Fatalf("grammar lost in translation: %v", tool)
 			}
 			var call map[string]any
 			if stream {
@@ -199,6 +226,7 @@ func TestCustomToolRefusalInGroup(t *testing.T) {
 func TestCustomToolRefusalWordings(t *testing.T) {
 	known := []string{
 		deepSeekCustomRefusal,
+		vllmGrammarRefusal,
 		`{"error":{"message":"Unsupported custom tool: 'exec'. Only 'apply_patch' is supported."}}`,
 		`{"error":{"message":"DeepSeek: Unsupported custom tool: 'exec'. Only 'apply_patch' is supported.","type":"invalid_request_error"}}`,
 		`{"error":{"message":"Invalid tool type: 'custom'"}}`,
@@ -219,6 +247,9 @@ func TestCustomToolRefusalWordings(t *testing.T) {
 	for _, b := range []string{
 		`{"error":{"message":"Invalid schema for function 'exec': 'input' is required"}}`,
 		`{"error":{"message":"tools[0].function.strict is not supported"}}`,
+		`{"error":{"message":"Invalid grammar format for custom tool 'exec'"}}`,
+		`{"error":{"message":"Custom tools with a grammar format require a valid definition"}}`,
+		`{"error":{"message":"temperature must be between 0 and 2","param":"temperature"}}`,
 		`{"error":{"message":"Insufficient Balance"}}`,
 		// a variant other than the type itself says nothing of custom tools
 		`{"error":{"message":"tools[2].type: unknown variant ` + "`web_search_2025`" + `"}}`,
