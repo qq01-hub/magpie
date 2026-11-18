@@ -224,6 +224,11 @@ var others = []*Agent{
 	// its own ("kimi-code-desktop/…", jiabubu on Discord). Its icon is the
 	// app's own, from KimiCode-1.2.1-win-x64.exe's build/icon.ico.
 	{ID: "kimi-code-desktop", Name: "Kimi Code Desktop", Icon: "kimi-code-desktop", UA: []string{"kimi-code-desktop"}},
+	// Kettu (kettu.sh) runs the user's own `codex app-server` with its name
+	// as clientInfo, which Codex makes its originator and User-Agent
+	// ("Kettu/0.169.0 (...)"), so its Codex turns are Kettu's and were drawn
+	// as the cube. Its icon is the app's own, from the app's build/icon.png.
+	{ID: "kettu", Name: "Kettu", Icon: "kettu", UA: []string{"kettu"}},
 	// Raft (slock's raft-computer) runs Pi in each of its agents' folders;
 	// Sessions lists those as Raft's (internal/sessions/raft.go), while
 	// their requests say "pi (…)" and are Pi's
