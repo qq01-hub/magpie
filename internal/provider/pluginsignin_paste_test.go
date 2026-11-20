@@ -92,8 +92,11 @@ func TestLoopbackPorts(t *testing.T) {
 		// authorize page (and its port) in service= (#1090)
 		"https://auth.huaweicloud.com/authui/login?site=intl&locale=en-us&service=" + url.QueryEscape("https://codearts.ap-southeast-1.huaweicloud.com/portal/authorize?theme=t&client_id=c&port=37093&code_challenge=x"): "37093",
 		"https://codearts.huaweicloud.com/portal/authorize?theme=t&client_id=c&port=37094&code_challenge=x":                                                                                                               "37094",
-		"https://zcode.z.ai/x?redirect_uri=https%3A%2F%2Fzcode.z.ai%2Fapp%2Foauth%2Flogin":                                                                                                                                "",
-		"https://github.com/login/device": "",
+		// Hash-routed SPAs put redirect_uri in the fragment's query (LobsterAI)
+		"https://lobsterai.youdao.com/portal#/login?source=electron&redirect_uri=" + url.QueryEscape("http://127.0.0.1:42961/auth/callback?return_to=https%3A%2F%2Flobsterai.youdao.com%2Fportal%23%2Flogin%3Fsource%3Delectron%26electronLogin%3Dsuccess") + "&state=s": "42961",
+		"https://example.com/app#/login?redirect_uri=https%3A%2F%2Fexample.com%2Fcb":       "",
+		"https://zcode.z.ai/x?redirect_uri=https%3A%2F%2Fzcode.z.ai%2Fapp%2Foauth%2Flogin": "",
+		"https://github.com/login/device":                                                  "",
 	} {
 		if got := strings.Join(loopbackPorts(page), ","); got != want {
 			t.Errorf("loopbackPorts(%s) = %q, want %q", page, got, want)
