@@ -50,13 +50,22 @@ func loopbackPorts(page string) []string {
 }
 
 // readPorts gives add each port page names, and reads the web addresses
-// in its query the same way, depth pages deep.
+// in its query (or a hash-routed SPA fragment's query, as LobsterAI puts
+// redirect_uri in #/login?...) the same way, depth pages deep.
 func readPorts(page string, depth int, add func(string)) {
 	u, err := url.Parse(page)
 	if err != nil {
 		return
 	}
-	for k, vs := range u.Query() {
+	readQueryPorts(u.Query(), depth, add)
+	if _, fq, ok := strings.Cut(u.Fragment, "?"); ok {
+		q, _ := url.ParseQuery(fq)
+		readQueryPorts(q, depth, add)
+	}
+}
+
+func readQueryPorts(q url.Values, depth int, add func(string)) {
+	for k, vs := range q {
 		for _, v := range vs {
 			r, err := url.Parse(v)
 			if err == nil && r.Scheme == "http" && isLoopback(r.Hostname()) {
