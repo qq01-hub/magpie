@@ -260,9 +260,13 @@ func TestReadAiHubMix(t *testing.T) {
 	if got, err := readAiHubMix([]byte(`{"object":"list","total_usage":12.5}`)); err != nil || got != "$12.50" {
 		t.Fatalf("got %q, %v", got, err)
 	}
-	// a key without a limit: -1 of AiHubMix's units
-	if _, err := readAiHubMix([]byte(`{"object":"list","total_usage":-0.000002}`)); err == nil {
-		t.Fatal("an unlimited key read as a balance")
+	for _, body := range []string{
+		`{"object":"list","total_usage":-0.000002}`,
+		`{"object":"list","total_usage":100000000}`,
+	} {
+		if got, err := readAiHubMix([]byte(body)); got != "" || err == nil || !strings.Contains(err.Error(), "this key has no limit") {
+			t.Errorf("unlimited key %s: got %q, %v", body, got, err)
+		}
 	}
 }
 
