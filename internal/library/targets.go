@@ -666,6 +666,15 @@ func targetOf(a *agent.Agent) *Target {
 		// getCurrentMemoryFilename in utils/memory-constants.ts,
 		// QwenLM/qwen-code c5098a27)
 		t.Instructions = filepath.Join(a.Dir, contextFile(a.Path, "QWEN.md"))
+		// its user-wide MCP servers are mcpServers in the same
+		// settings.json magpie sets its models in, which `qwen mcp add
+		// --scope user` writes: Gemini CLI's entries, httpUrl for a
+		// streamable server, url for SSE, command, args and env for a
+		// command, excludeTools for the tools left out (handleAddCommand
+		// in packages/cli/src/commands/mcp/add.ts, MCPServerConfig in
+		// packages/core/src/config/mcp-server-config.ts, QwenLM/qwen-code
+		// 37090be5)
+		t.MCP = &mcpFile{Path: a.Path, Format: fmtGemini}
 	case "reasonix":
 		// Reasonix reads every one there is of REASONIX.md, AGENTS.md and
 		// CLAUDE.md in its state folder; REASONIX.md is its own

@@ -104,7 +104,10 @@ func (f *mcpFile) refsOf() envSyntax {
 		// string of settings.json as it loads the file, and saves the file
 		// as written (packages/cli/src/config/settings.ts loadSettings ->
 		// resolveEnvVarsInObject; envVarResolver.ts resolveEnvVarsInString;
-		// read in the 0.62.0 bundle)
+		// read in the 0.62.0 bundle). Qwen Code, its fork, loads its
+		// settings.json the same way, $NAME and ${NAME}
+		// (packages/cli/src/config/settings.ts, packages/core/src/utils/
+		// envVarResolver.ts, QwenLM/qwen-code 37090be5)
 		return envSyntax{refDollar, refDollar}
 	case fmtCrush:
 		// Crush resolves $NAME and ${NAME} in an MCP server's headers and

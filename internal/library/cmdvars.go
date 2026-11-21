@@ -119,8 +119,8 @@ func (f *mcpFile) cmdRefs() refSyntax {
 	}
 	switch f.Format {
 	case fmtClaude, fmtGrok, fmtGemini, fmtOmp:
-		// Claude Code, CodeBuddy and WorkBuddy; Grok Build; Gemini CLI;
-		// omp, Qoder and AtomCode. Droid (fmtClaude too) reads one in env
+		// Claude Code, CodeBuddy and WorkBuddy; Grok Build; Gemini CLI and
+		// Qwen Code; omp, Qoder and AtomCode. Droid (fmtClaude too) reads one in env
 		// and headers only: NoCmdRefs.
 		return refDollar
 	case fmtOpenCode:

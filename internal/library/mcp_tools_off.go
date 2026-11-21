@@ -59,6 +59,7 @@ func toolsOffOf(t *Target) toolsOffHow {
 		return toolsOpenCode
 	case id == "codex" && t.MCP.Format == fmtCodex,
 		id == "gemini" && t.MCP.Format == fmtGemini,
+		id == "qwen" && t.MCP.Format == fmtGemini,
 		id == "crush" && t.MCP.Format == fmtCrush,
 		id == "hermes" && t.MCP.Format == fmtHermes:
 		return toolsInEntry
@@ -72,6 +73,10 @@ func toolsOffOf(t *Target) toolsOffHow {
 //     ToolFilter in codex-rs/codex-mcp/src/tools.rs, openai/codex cc7ba336)
 //   - Gemini CLI: excludeTools (docs/tools/mcp-server.md; mcp-client.ts
 //     drops a tool whose name it lists, google-gemini/gemini-cli 9b6e0265)
+//   - Qwen Code: excludeTools, as the Gemini CLI it was forked from
+//     (MCPServerConfig in packages/core/src/config/mcp-server-config.ts;
+//     isEnabled in packages/core/src/tools/mcp-client.ts drops a tool
+//     whose name it lists, QwenLM/qwen-code 37090be5)
 //   - Crush: disabled_tools (internal/config/config.go MCPConfig,
 //     filterTools in internal/agent/tools/mcp/tools.go, charmbracelet/crush
 //     df5b024a)
