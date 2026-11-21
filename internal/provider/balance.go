@@ -705,10 +705,9 @@ func readModelScope(b []byte) (string, error) {
 	return strconv.FormatFloat(v, 'f', -1, 64) + " 魔粒", nil
 }
 
-// readAiHubMix: {"object":"list","total_usage":12.5}, what is left on the
-// key in dollars, despite the name. A key without a limit answers -1 of
-// AiHubMix's units ($1 is 500000 of them): it has no balance of its own, and
-// the account's is told only to the account's access token, not to a key.
+// readAiHubMix reads what is left on the key in dollars. AiHubMix has
+// returned both -1 quota unit and 100000000 dollars for unlimited keys.
+// The account's balance requires a separate management key.
 func readAiHubMix(b []byte) (string, error) {
 	var r struct {
 		Remain any `json:"total_usage"`
@@ -720,8 +719,8 @@ func readAiHubMix(b []byte) (string, error) {
 	if !ok {
 		return "", errors.New("no balance in the reply")
 	}
-	if v < 0 {
-		return "", errors.New("this key has no limit, and AiHubMix tells a key only what is left on it: give magpie the account's access token (AiHubMix → Settings → Generate System Access Token) in this provider's settings to see the account's balance, or give the key a limit in AiHubMix's console")
+	if v < 0 || v == 100_000_000 {
+		return "", errors.New("this key has no limit: add the account's management key (AiHubMix → Developer → Management Key) in this provider's settings to see the account's balance, or give the API key a limit in AiHubMix's console")
 	}
 	return money("$", v), nil
 }
