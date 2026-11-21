@@ -141,7 +141,7 @@ func callerFrom(r *http.Request) caller {
 		c.compact = boundedSession(r.Header.Get(dshCompactHeader))
 	}
 	for _, h := range sessionHeaders {
-		if v := boundedSession(r.Header.Get(h)); v != "" {
+		if v := boundedSession(sessionIn(r.Header, h)); v != "" {
 			c.native = [2]string{h, v}
 			break
 		}

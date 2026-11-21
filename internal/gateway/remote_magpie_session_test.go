@@ -76,6 +76,8 @@ func TestRemoteMagpieKeepsTheSession(t *testing.T) {
 		{"/v1/responses", `{"model":"office/fake/m1","input":[{"role":"user","content":"hi"}],"prompt_cache_key":"cache-A"}`, "pi/1.0", "pi", "session_id", "native-A"},
 		{"/v1/chat/completions", `{"model":"office/fake/m1","messages":[{"role":"user","content":"hi"}]}`, "CLI/2.161.0 WorkBuddy/2.161.0", "workbuddy", "X-Conversation-ID", "workbuddy-A"},
 		{"/v1/responses", `{"model":"office/fake/m1","input":[{"role":"user","content":"hi"}]}`, "CLI/2.161.0 WorkBuddy/2.161.0", "workbuddy", "X-Conversation-ID", "workbuddy-A"},
+		// Grok Build names its session in x-grok-session-id, on Chat Completions
+		{"/v1/chat/completions", `{"model":"office/fake/m1","messages":[{"role":"user","content":"<user_query>\nhi\n</user_query>"}]}`, "grok-shell/1.0.89 (macos; aarch64)", "grok", "X-Grok-Session-Id", "01f3b2c8-7d44-4e1a-9c60-5a12edf75ce8"},
 	} {
 		req := httptest.NewRequest("POST", tc.path, strings.NewReader(tc.body))
 		req.Header.Set("User-Agent", tc.ua)
@@ -101,7 +103,7 @@ func TestRemoteMagpieKeepsTheSession(t *testing.T) {
 	defer mu.Unlock()
 	for _, v := range vendor {
 		for k := range v {
-			if lk := strings.ToLower(k); strings.HasPrefix(lk, "x-magpie-") || lk == "session_id" || lk == "x-conversation-id" {
+			if lk := strings.ToLower(k); strings.HasPrefix(lk, "x-magpie-") || lk == "session_id" || lk == "x-conversation-id" || lk == "x-grok-session-id" {
 				t.Errorf("the vendor was sent %s", k)
 			}
 		}

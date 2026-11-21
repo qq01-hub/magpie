@@ -122,7 +122,7 @@ func parseCodexTurnJSON(raw []byte) (id codexTurnIdentity) {
 
 func rawNativeSession(in http.Header) string {
 	for _, h := range sessionHeaders {
-		if v := strings.TrimSpace(in.Get(h)); v != "" {
+		if v := sessionIn(in, h); v != "" {
 			return v
 		}
 	}
