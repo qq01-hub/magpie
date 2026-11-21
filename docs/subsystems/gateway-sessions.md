@@ -67,6 +67,35 @@ Both are read on Messages and Responses as on Chat Completions, which a
 user's own llm-deepseek row pointed at magpie relies on (#3298,
 `TestDshMarksOnEveryRoute`).
 
+Grok Build names its session in `x-grok-session-id`, read the same way after
+the others (`sessionIn`). A turn's requests carry the session's id, also after
+the session is resumed, and so does the title Grok asks with the whole
+conversation; all of them send `x-grok-conv-id` alike. A subagent's requests
+carry an id of their own, and nothing in them names the session that started
+it. The id is the name of the session's own folder (`sessions/<cwd>/<id>`), so
+a session seen through the gateway and its native row are one. Two requests
+name no session and are told apart by how they open, as before: the one Grok
+sends before a session exists, whose header is empty, and the summary it asks
+after a turn, which sends the session's id with a conv id of its own
+(`turn-summary-…`) on the turn's own model. Named for the session, the
+summary's short answer would be kept as the conversation's (the account's
+record under `stickKey`) and the next turn would be routed as if little were
+cached. Without the header every Grok conversation was known only by its
+opening, and Grok opens every conversation with the same message (`<user_info>`
+and `<rules>`, context alone, which `userWords` takes for the user's): all the
+conversations started in a folder on one day were one conversation, a subagent
+was its lead, and a plugin's fetch was told no session
+(`TestGrokBuildNamesItsSession`, on grok 1.0.89's and 1.0.92's own headers and
+first message). Everything that goes by the session an agent names goes by
+Grok's from then on: the conversation an account is kept for, the usage
+record's session and its By session views, a recorded gateway session, the
+turn-done alert, what a provider's header template is given as the session,
+and the hop to a remote magpie, which is sent the header as it is the others'
+(`TestRemoteMagpieKeepsTheSession`). The accounts kept in `affinity.json`
+under the opening's hash are not carried over: a Grok conversation begun
+before the upgrade is, at its next turn, a conversation not seen before, and
+can choose an account anew, once. Usage recorded before is not backfilled.
+
 When the same identity is present in a native session, the native session wins
 and the gateway projection is omitted. A native session can stand for more
 than its own key (`sessions.GatewayKeys`): Raft's (slock's raft-computer)

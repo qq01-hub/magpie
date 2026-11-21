@@ -11204,11 +11204,37 @@ func developerAsSystem(body []byte) []byte {
 
 // sessionHeaders are where agents already name their conversation: OpenCode
 // (to its own gateway, and to everyone else), Pi, Codex, Claude Code,
-// WorkBuddy / CodeBuddy (X-Conversation-ID) and DSH (#2505).
+// WorkBuddy / CodeBuddy (X-Conversation-ID), DSH (#2505) and Grok Build
+// (grokSessionHeader). Read through sessionIn, which knows the one request
+// that carries a session's header and is not its turn.
 var sessionHeaders = []string{
 	"x-opencode-session", "x-session-affinity", "x-session-id",
 	"session_id", "session-id", "x-claude-code-session-id",
 	"x-conversation-id", "x-deepseek-harness-session-id",
+	grokSessionHeader,
+}
+
+// grokSessionHeader is where Grok Build names its session. A turn's
+// requests, and the title it asks with the whole conversation, send
+// x-grok-conv-id alike. The summary it asks after a turn sends the
+// session's id with a conv id of its own ("turn-summary-…") on the turn's
+// own model: it is no turn of the conversation, and named for it, its
+// short answer would be kept as the conversation's (the account's record
+// under stickKey, which every answered call writes over). So it names no
+// session, and is told apart by how it opens, as it was before the header
+// was read.
+const grokSessionHeader = "x-grok-session-id"
+
+// sessionIn is the session header h names in in, "" for none: the
+// header's value, and none for Grok's summary after a turn.
+func sessionIn(in http.Header, h string) string {
+	v := strings.TrimSpace(in.Get(h))
+	if v != "" && h == grokSessionHeader {
+		if c := strings.TrimSpace(in.Get("x-grok-conv-id")); c != "" && c != v {
+			return ""
+		}
+	}
+	return v
 }
 
 // dshCompactHeader is how DSH marks a request that compacts its context
@@ -11243,7 +11269,7 @@ const AccountHeader = "X-Magpie-Account"
 // sessionOf is the session a request names, "" when it names none.
 func sessionOf(in http.Header) string {
 	for _, h := range append([]string{SessionHeader}, sessionHeaders...) {
-		if v := strings.TrimSpace(in.Get(h)); v != "" {
+		if v := sessionIn(in, h); v != "" {
 			if len(v) > 128 {
 				v = v[:128]
 			}
@@ -11276,7 +11302,7 @@ func subOf(in http.Header) string {
 // nativeSessionOf keeps the client session even when magpie's header overrides it.
 func nativeSessionOf(in http.Header) string {
 	for _, h := range sessionHeaders {
-		if v := strings.TrimSpace(in.Get(h)); v != "" {
+		if v := sessionIn(in, h); v != "" {
 			return v[:min(len(v), 128)]
 		}
 	}
@@ -11299,7 +11325,7 @@ func nativeSessionOf(in http.Header) string {
 // plugin is sent (Kilo, ConversationHeader), doesn't read X-Magpie-Session.
 func affinityID(in http.Header, body []byte) string {
 	for _, h := range sessionHeaders {
-		if v := strings.TrimSpace(in.Get(h)); v != "" {
+		if v := sessionIn(in, h); v != "" {
 			return v
 		}
 	}
@@ -11311,7 +11337,7 @@ func affinityID(in http.Header, body []byte) string {
 
 func conversationID(in http.Header, body []byte) string {
 	for _, h := range sessionHeaders {
-		if v := strings.TrimSpace(in.Get(h)); v != "" {
+		if v := sessionIn(in, h); v != "" {
 			return v
 		}
 	}

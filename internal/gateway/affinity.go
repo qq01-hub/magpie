@@ -1283,7 +1283,7 @@ func withSession(scope, key string, named bool, a *Affinity, own stick, had bool
 // be the hash of how the conversation opens.
 func sessionNamed(in http.Header) bool {
 	for _, h := range sessionHeaders {
-		if strings.TrimSpace(in.Get(h)) != "" {
+		if sessionIn(in, h) != "" {
 			return true
 		}
 	}

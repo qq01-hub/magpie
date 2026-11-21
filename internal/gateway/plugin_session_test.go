@@ -121,6 +121,9 @@ func TestPluginToldTheSession(t *testing.T) {
 			{"claude code's subagent without session", map[string]string{"X-Claude-Code-Agent-Id": "agent-7"}, "", "agent-7"},
 			{"magpie's own session header first", map[string]string{"X-Magpie-Session": "mine", "X-Claude-Code-Session-Id": "cc-s1"}, "mine", ""},
 			{"opencode", map[string]string{"X-Opencode-Session": "ses_1"}, "ses_1", ""},
+			{"grok build", map[string]string{"X-Grok-Session-Id": "01f3b2c8-7d44-4e1a-9c60-5a12edf75ce8", "X-Grok-Conv-Id": "01f3b2c8-7d44-4e1a-9c60-5a12edf75ce8", "X-Grok-Conv-Group-Id": "b6170fa2-4ecd-4f0b-a318-c7d2a12fcef8"}, "01f3b2c8-7d44-4e1a-9c60-5a12edf75ce8", ""},
+			{"grok build before a session", map[string]string{"X-Grok-Session-Id": "", "X-Grok-Conv-Id": "", "X-Grok-Conv-Group-Id": "b6170fa2-4ecd-4f0b-a318-c7d2a12fcef8"}, "", ""},
+			{"grok build's summary after a turn", map[string]string{"X-Grok-Session-Id": "01f3b2c8-7d44-4e1a-9c60-5a12edf75ce8", "X-Grok-Conv-Id": "turn-summary-13e02e3a-ea1e-46b8-9feb-0d3a5bea73a2", "X-Grok-Conv-Group-Id": "b6170fa2-4ecd-4f0b-a318-c7d2a12fcef8"}, "", ""},
 			{"no session named", nil, "", ""},
 		} {
 			body := `{"model":"` + pid + `/` + model + `","max_tokens":64,"stream":false,"messages":[{"role":"user","content":"hi"}]}`
