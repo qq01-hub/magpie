@@ -59,8 +59,9 @@ func TestToolsOffInTheEntry(t *testing.T) {
 	t.Setenv("HERMES_HOME", filepath.Join(h, "hermes-home"))
 	write(t, filepath.Join(h, "hermes-home", "config.yaml"), "model:\n  default: x\n")
 	holdCLI(t, h, "hermes") // the config alone is gone (#2173, #2177)
-	agents := []string{"codex", "crush", "gemini", "hermes"}
-	keys := map[string]string{"codex": "disabled_tools", "crush": "disabled_tools", "gemini": "excludeTools", "hermes": "exclude"}
+	write(t, filepath.Join(h, ".qwen", "settings.json"), "{}\n")
+	agents := []string{"codex", "crush", "gemini", "hermes", "qwen"}
+	keys := map[string]string{"codex": "disabled_tools", "crush": "disabled_tools", "gemini": "excludeTools", "hermes": "exclude", "qwen": "excludeTools"}
 	ok(t)(SaveServer("", Server{Name: "fs", Transport: "stdio", Command: "npx", Args: []string{"-y", "@mcp/fs"}, Agents: agents}))
 	for _, id := range agents {
 		tg := targetByID(id)

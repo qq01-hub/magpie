@@ -22,8 +22,9 @@ func TestWSLOwnFolderTargets(t *testing.T) {
 	write(t, filepath.Join(h, ".factory", "settings.json"), "{}\n")
 	write(t, filepath.Join(h, ".config", "opencode", "opencode.json"), "{}\n")
 	write(t, filepath.Join(h, ".claude", "settings.json"), "{}\n")
+	write(t, filepath.Join(h, ".qwen", "settings.json"), "{}\n")
 	t.Cleanup(agent.FakeWSL(map[string]string{
-		"Ubuntu": "home:/home/me\ndir:.hermes\nbin:hermes\ndir:.omp\nbin:omp\ndir:.factory\nbin:droid\ndir:.config/opencode\nbin:opencode\ndir:.claude\n",
+		"Ubuntu": "home:/home/me\ndir:.hermes\nbin:hermes\ndir:.omp\nbin:omp\ndir:.factory\nbin:droid\ndir:.config/opencode\nbin:opencode\ndir:.claude\ndir:.qwen\nbin:qwen\n",
 	}, map[string]string{"Ubuntu": root}))
 
 	const hermes = "hermes@wsl:Ubuntu"
@@ -42,6 +43,11 @@ func TestWSLOwnFolderTargets(t *testing.T) {
 		if tg.MCP == nil || tg.MCP.Path != filepath.Join(h, w[0]) || !tg.MCP.WSL || tg.MCP.Distro != "Ubuntu" || tg.Skills != filepath.Join(h, w[1]) || tg.Copy || tg.Store != filepath.Join(h, ".local/share/magpie/skills") || tg.Agent.ID != id {
 			t.Errorf("%s: %+v (mcp %+v)", id, tg, tg.MCP)
 		}
+	}
+	// Qwen Code there is given MCP servers in the distro's settings.json; the
+	// library has no skills folder for it
+	if tg := targetByID("qwen@wsl:Ubuntu"); tg == nil || tg.MCP == nil || tg.MCP.Path != filepath.Join(h, ".qwen/settings.json") || tg.MCP.Format != fmtGemini || !tg.MCP.WSL || tg.MCP.Distro != "Ubuntu" {
+		t.Errorf("qwen@wsl:Ubuntu: %+v", tg)
 	}
 	// OpenCode there reads the distro's Claude Code skills, not this machine's
 	if tg := targetByID("opencode@wsl:Ubuntu"); tg != nil && (len(tg.SkillsAlso) != 1 || tg.SkillsAlso[0] != "claude@wsl:Ubuntu") {
