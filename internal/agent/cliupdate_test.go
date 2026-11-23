@@ -65,6 +65,71 @@ func TestInstalledVersion(t *testing.T) {
 	}
 }
 
+func TestClaudeManagedCLIVersion(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("uses shell fixture CLIs")
+	}
+	home, cache, path := t.TempDir(), t.TempDir(), t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("XDG_CACHE_HOME", cache)
+	t.Setenv("PATH", path)
+	a := &Agent{ID: "claude", Name: "Claude Code", Bin: "claude"}
+	for _, v := range []string{"2.1.99", "2.1.330"} {
+		p := filepath.Join(cache, "magpie", "claude-code", v, "claude")
+		testenv.Program(t, p, "#!/bin/sh\necho '"+v+" (Claude Code)'\n")
+	}
+	managed := filepath.Join(cache, "magpie", "claude-code", "2.1.330", "claude")
+	c, ok := a.CLI()
+	if !ok || c.Version != "2.1.330" || c.Path != managed || c.Update || c.Command != "" {
+		t.Fatalf("cache-only Claude CLI = %+v, %v; want cached version without an updater", c, ok)
+	}
+	if v := a.InstalledVersion(); v != c.Version {
+		t.Errorf("cached InstalledVersion() = %q; want %q", v, c.Version)
+	}
+	if _, err := a.UpdateCLI(); err == nil {
+		t.Error("managed cache must not be updated through the ordinary agent updater")
+	}
+	// The bridge leaves this folder once it runs the managed Claude.
+	if err := os.Mkdir(filepath.Join(home, ".claude"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if rows, _ := CLIs(5 * time.Second); rows["claude"].Version != "2.1.330" {
+		t.Errorf("Agents version listing misses managed Claude: %+v", rows["claude"])
+	}
+	normal := filepath.Join(path, "claude")
+	testenv.Program(t, normal, "#!/bin/sh\necho '2.1.319 (Claude Code)'\n")
+	if c, ok := a.CLI(); !ok || c.Version != "2.1.319" || c.Path != normal {
+		t.Errorf("ordinary Claude CLI = %+v, %v; it must take precedence over the cache", c, ok)
+	}
+}
+
+func TestAgyCLIVersionWithoutUpdater(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("uses a shell fixture CLI")
+	}
+	home, path := t.TempDir(), t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("PATH", path)
+	bin := filepath.Join(home, ".local", "bin", "agy")
+	testenv.Program(t, bin, "#!/bin/sh\necho 1.5.15\n")
+	a := &Agent{ID: "agy", Name: "Antigravity CLI", Bin: "agy"}
+	if c, ok := a.CLI(); !ok || c.Version != "1.5.15" || c.Path != bin || c.Update || c.Command != "" {
+		t.Errorf("agy CLI = %+v, %v; want local version without an updater", c, ok)
+	}
+	if v := a.InstalledVersion(); v != "1.5.15" {
+		t.Errorf("agy InstalledVersion() = %q; want 1.5.15", v)
+	}
+	if rows, _ := CLIs(5 * time.Second); rows["agy"].Version != "1.5.15" {
+		t.Errorf("Agents version listing misses agy: %+v", rows["agy"])
+	}
+	if cmds := installCommands("agy", runtime.GOOS, true); len(cmds) != 0 {
+		t.Errorf("an agy version probe unexpectedly registers installers: %+v", cmds)
+	}
+	if _, err := a.UpdateCLI(); err == nil {
+		t.Error("agy must not be updated through the agent updater")
+	}
+}
+
 func TestParseCLIVersion(t *testing.T) {
 	for out, want := range map[string]string{
 		"2.1.284 (Claude Code)\n": "2.1.284",

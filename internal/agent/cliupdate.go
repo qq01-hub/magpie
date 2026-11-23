@@ -28,6 +28,7 @@ import (
 	"unicode/utf16"
 
 	"github.com/yetone/magpie/internal/appdir"
+	"github.com/yetone/magpie/internal/claudecode"
 	"github.com/yetone/magpie/internal/desktopdir"
 	"github.com/yetone/magpie/internal/edit"
 	"github.com/yetone/magpie/internal/gateway"
@@ -147,6 +148,7 @@ var cliSpecs = map[string]cliSpec{
 			return nil
 		}},
 	"gemini": {npm: []string{"@google/gemini-cli"}, brew: []string{"gemini-cli"}},
+	"agy":    {}, // Report the installed version; leave installation and updates to agy.
 	// DevEco Code: npm's @deveco/deveco-code, or its own installer's
 	// ~/.local/bin/deveco → ~/.local/share/deveco/versions/<v>/deveco
 	// (install), deveco.exe in ~\.local\bin on Windows (install.ps1),
@@ -932,7 +934,13 @@ func (a *Agent) CLI() (c CLI, ok bool) {
 	c.App = a.AppVersion()
 	bin, spec := a.cliBin()
 	if bin == "" {
-		if a.ID == "claude" && a.WSL == "" {
+		if a.ID == "claude" {
+			if path, _ := claudecode.Downloaded(); path != "" {
+				// The subscription bridge manages this copy. Show it without
+				// offering the updater for an ordinary Claude installation.
+				c.Path, c.Version = path, installedVersion(path)
+				return c, true
+			}
 			c.InDesktop, c.DesktopVersion = claudeInDesktop()
 		}
 		return c, c.App != "" || c.InDesktop
@@ -972,9 +980,9 @@ func claudeInDesktop() (here bool, version string) {
 	return claudeDesktop(home).Detected(), ""
 }
 
-// InstalledVersion is what the agent's CLI on PATH says its version is: ""
-// for an agent without a CLI magpie knows, one not on PATH, or one that
-// didn't say. Asked once per binary, like CLI's; nothing is fetched. An
+// InstalledVersion is what the agent's detected CLI says its version is: ""
+// for an agent without a CLI magpie knows or one that didn't say. Asked once
+// per binary, like CLI's; nothing is fetched. An
 // agent in a WSL distro's is what the distro's own CLI said at its probe,
 // for the kinds that ask (wslKind.version), never this machine's.
 func (a *Agent) InstalledVersion() string {
@@ -982,6 +990,9 @@ func (a *Agent) InstalledVersion() string {
 		return a.wslVersion
 	}
 	bin, _ := a.cliBin()
+	if bin == "" && a.ID == "claude" {
+		bin, _ = claudecode.Downloaded()
+	}
 	if bin == "" {
 		return ""
 	}
