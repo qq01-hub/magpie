@@ -18,18 +18,31 @@ import (
 
 // AccountServes says whether the account or key ref (a signed-in
 // account's name, a key's KeyID) is let serve model: true when it has no
-// list of its own, and for a model Codex calls by itself that no list can
-// hold (codexOwnHidden).
+// list of its own, for a model Codex calls by itself that no list can
+// hold (codexOwnHidden), and for a conversation provider's decision-only
+// model that Available leaves out (ownHiddenDecide).
 //
 // A model the user lists by an id of theirs (SetModelID) is in the list
 // by that id, or by the vendor's own one a list kept from before has.
 func (p Provider) AccountServes(ref, model string) bool {
 	ms, ok := p.AccountModels[accountKey(ref)]
-	if !ok || len(ms) == 0 || slices.Contains(ms, model) || codexOwnHidden(p, model) {
+	if !ok || len(ms) == 0 || slices.Contains(ms, model) || codexOwnHidden(p, model) || ownHiddenDecide(p, model) {
 		return true
 	}
 	own := p.OwnModelID(model)
 	return own != model && slices.Contains(ms, own)
+}
+
+// ownHiddenDecide says model is a decision-only model of a conversation
+// provider whose Available list keeps decision models apart (Google's
+// gemini-decision-1, Bailian's decision-model-preview, OpenRouter's
+// decision list, Cloudflare's Clef). A key or account's own model list is
+// chosen from Available and can never name it, so routing would otherwise
+// bar every key with a list (403, #7788). Decide-only providers, plugins,
+// remote magpie, and models explicitly marked DecideAPI list their models
+// in Available, so their per-key lists still apply.
+func ownHiddenDecide(p Provider, model string) bool {
+	return !p.DecideOnly() && !p.IsPlugin() && !p.IsRemoteMagpie() && !p.decideSet(model) && p.OnlyDecides(model)
 }
 
 // codexOwnHidden says model is one a Codex account serves that its list

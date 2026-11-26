@@ -244,3 +244,101 @@ func TestGoogleKeyDecides(t *testing.T) {
 		t.Fatalf("vertex: %q", d)
 	}
 }
+
+// #7788: a conversation provider's decision-only model is not in Available(),
+// so per-key AccountModels lists picked from Available() can never contain it
+// and must not bar keys from serving it; DecideOnly providers and chat models
+// still honor per-key lists.
+func TestAccountServesHiddenDecisionModel(t *testing.T) {
+	arkHome(t)
+	g, err := FromPreset("google")
+	if err != nil {
+		t.Fatal(err)
+	}
+	g.Key = "AIza-1"
+	g.Keys = []KeyAccount{{Key: "AIza-2"}}
+	g.AccountModels = map[string][]string{
+		keyID("AIza-1"): {"gemini-3.5-flash"},
+		keyID("AIza-2"): {"gemini-3.5-flash"},
+	}
+	if err := Save(g); err != nil {
+		t.Fatal(err)
+	}
+	p, err := Find("google")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, k := range []string{"AIza-1", "AIza-2"} {
+		if !p.AccountServes(keyID(k), GoogleDecision) {
+			t.Fatalf("google key %s barred from %s", k, GoogleDecision)
+		}
+		if p.AccountServes(keyID(k), "gemini-3.5-pro") {
+			t.Fatalf("google key %s unexpectedly serves unlisted chat model", k)
+		}
+	}
+	out, _, barred, _ := p.KeysFor(GoogleDecision, nil)
+	if len(out) != 2 || len(barred) != 0 {
+		t.Fatalf("google KeysFor(%s): out=%d barred=%d, want 2/0", GoogleDecision, len(out), len(barred))
+	}
+
+	// Sibling Bailian mixed provider (chat + decision)
+	b := Provider{
+		ID:     "bailian-mixed",
+		Name:   "Bailian",
+		Chat:   "https://token-plan.cn-beijing.maas.aliyuncs.com/compatible-mode/v1",
+		Decide: "https://token-plan.cn-beijing.maas.aliyuncs.com/compatible-mode/v1",
+		Key:    "sk-b1",
+		AccountModels: map[string][]string{
+			keyID("sk-b1"): {"qwen3.5-plus"},
+		},
+	}
+	if !b.AccountServes(keyID("sk-b1"), BailianDecision) {
+		t.Fatalf("bailian key barred from %s", BailianDecision)
+	}
+	if b.AccountServes(keyID("sk-b1"), "qwen3-max") {
+		t.Fatalf("bailian key unexpectedly serves unlisted chat model")
+	}
+
+	// Sibling OpenRouter (decision models live under decisionsID)
+	or, err := FromPreset("openrouter")
+	if err != nil {
+		t.Fatal(err)
+	}
+	or.Key = "sk-or-1"
+	or.AccountModels = map[string][]string{
+		keyID("sk-or-1"): {"openai/gpt-5"},
+	}
+	if err := Save(or); err != nil {
+		t.Fatal(err)
+	}
+	if err := catalog.SaveLive(decisionsID("openrouter"), "https://openrouter.ai/api/v1", []catalog.Model{{ID: "google/gemini-decision-1"}, {ID: OpenRouterJev}}); err != nil {
+		t.Fatal(err)
+	}
+	orSaved, err := Find("openrouter")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !orSaved.AccountServes(keyID("sk-or-1"), "google/gemini-decision-1") {
+		t.Fatalf("openrouter key barred from decision model")
+	}
+	if orSaved.AccountServes(keyID("sk-or-1"), "typesafe/jev-router") {
+		t.Fatalf("openrouter key unexpectedly serves unlisted chat model")
+	}
+
+	// DecideOnly provider: Available() lists its decision models, so per-key lists still apply
+	decOnly := Provider{
+		ID:     "dec-only",
+		Name:   "Decider",
+		Decide: "https://api.typesafe.ai/v1",
+		Key:    "sk-d1",
+		AccountModels: map[string][]string{
+			keyID("sk-d1"): {JevLatest},
+		},
+	}
+	if !decOnly.AccountServes(keyID("sk-d1"), JevLatest) {
+		t.Fatalf("decide-only key barred from listed decision model")
+	}
+	if decOnly.AccountServes(keyID("sk-d1"), "jev-preview") {
+		t.Fatalf("decide-only key unexpectedly serves unlisted decision model")
+	}
+}

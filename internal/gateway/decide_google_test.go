@@ -139,3 +139,33 @@ func TestGoogleDecisionsTakesImages(t *testing.T) {
 		t.Fatalf("input %s\nwant %s", in, want)
 	}
 }
+
+// #7788: Google keys with per-key chat model lists (which never include
+// gemini-decision-1 because Available() only holds generateContent models)
+// still serve google/gemini-decision-1 at /v1/systemone instead of 403.
+func TestGoogleSystemOneWithPerKeyModelLists(t *testing.T) {
+	fresh(t)
+	up := &googleDecisionsUp{reply: googleChoiceReply}
+	s := googleKey(t, up)
+	p, err := provider.Find("google")
+	if err != nil {
+		t.Fatal(err)
+	}
+	p.Keys = []provider.KeyAccount{{Key: "AIza-test-2"}}
+	p.AccountModels = map[string][]string{
+		provider.KeyID("AIza-test"):   {"gemini-3.5-flash"},
+		provider.KeyID("AIza-test-2"): {"gemini-3.5-flash"},
+	}
+	if err := provider.Save(*p); err != nil {
+		t.Fatal(err)
+	}
+	code, out := sendTo(s, "/v1/systemone", `{"model":"google/`+provider.GoogleDecision+`","state":{"message":"hi"},"questions":{"q":{"type":"choice","instructions":"Pick one","criteria":{"a":"a","b":"b"}}}}`)
+	if code != 200 || !strings.Contains(out, `"choice":"technical_support"`) {
+		t.Fatalf("System One with per-key lists: %d %s", code, out)
+	}
+	// Chat models outside every key's list remain barred with 403.
+	code, out = sendTo(s, "/v1/chat/completions", `{"model":"google/gemini-3.5-pro","messages":[{"role":"user","content":"hi"}]}`)
+	if code != 403 || !strings.Contains(out, "each one's own list of models leaves it out") {
+		t.Fatalf("unlisted chat model: %d %s", code, out)
+	}
+}
