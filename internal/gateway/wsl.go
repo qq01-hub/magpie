@@ -340,18 +340,18 @@ func asFromLoopback(r *http.Request) *http.Request {
 var wslWatch = 10 * time.Second
 
 // serveWSL serves srv on each address Windows has on a WSL network, while
-// the gateway listens on loopback alone, until ctx ends.
+// the gateway listens on loopback alone, until ctx ends. Listeners still open
+// when ctx ends are left for srv.Shutdown / srv.Close to close, so Shutdown
+// does not double-close them and return net.ErrClosed (#7729).
 func (s *Server) serveWSL(ctx context.Context, srv *http.Server) {
 	if runtime.GOOS != "windows" && !wslServeEverywhere {
 		return
 	}
 	lns := map[string]net.Listener{}
-	defer func() {
-		for _, ln := range lns {
-			ln.Close()
-		}
-	}()
 	look := func() {
+		if ctx.Err() != nil {
+			return
+		}
 		want := map[string]bool{}
 		via := map[string]bool{}
 		if s.onLoopback() {
@@ -374,10 +374,17 @@ func (s *Server) serveWSL(ctx context.Context, srv *http.Server) {
 			if lns[a] != nil {
 				continue
 			}
+			if ctx.Err() != nil {
+				return
+			}
 			ln, err := net.Listen("tcp", a)
 			if err != nil {
 				log.Printf("gateway: can't listen for WSL at %s: %v", a, err)
 				continue
+			}
+			if ctx.Err() != nil {
+				ln.Close()
+				return
 			}
 			if via[a] {
 				ln = viaListener{ln}

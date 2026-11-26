@@ -1,16 +1,21 @@
 package gateway
 
 import (
+	"bytes"
 	"context"
 	"io"
+	"log"
 	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/yetone/magpie/internal/provider"
 )
 
 // fakeWSLNet makes nets the WSL networks Windows has an address on.
@@ -368,4 +373,239 @@ func TestServeWSLListensAtVia(t *testing.T) {
 		t.Fatal(err)
 	}
 	waitFor(false, "via unset")
+}
+
+// syncLogBuf captures log output safely across background goroutines.
+type syncLogBuf struct {
+	mu sync.Mutex
+	b  bytes.Buffer
+}
+
+func (l *syncLogBuf) Write(p []byte) (int, error) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return l.b.Write(p)
+}
+
+func (l *syncLogBuf) String() string {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return l.b.String()
+}
+
+// freeLoopbackPort finds a TCP port free on both 127.0.0.1 and [::1].
+func freeLoopbackPort(t *testing.T) string {
+	t.Helper()
+	l4, err := net.Listen("tcp4", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, port, _ := net.SplitHostPort(l4.Addr().String())
+	l6, err := net.Listen("tcp6", net.JoinHostPort("::1", port))
+	l4.Close()
+	if err != nil {
+		t.Skip("no IPv6 loopback on paired port")
+	}
+	l6.Close()
+	return port
+}
+
+// Stopping the gateway while serveWSL holds a WSL listener must drain cleanly
+// without logging "requests still in flight; they are cut" on a double-closed
+// listener (#7729), while a genuine request still in flight past shortDrain
+// still logs and gets cut.
+func TestWSLShutdownDoesNotLogCut(t *testing.T) {
+	if l6, err := net.Listen("tcp6", "[::1]:0"); err != nil {
+		t.Skip("no IPv6 loopback")
+	} else {
+		l6.Close()
+	}
+
+	startWithWSL := func(t *testing.T) (s *Server, port string, logs *syncLogBuf, stop context.CancelFunc, waitDone func() error) {
+		t.Helper()
+		fresh(t)
+		port = freeLoopbackPort(t)
+		t.Setenv("MAGPIE_ADDR", "127.0.0.1:"+port)
+
+		oldServe, oldWatch := wslServeEverywhere, wslWatch
+		wslServeEverywhere, wslWatch = true, time.Hour
+		t.Cleanup(func() { wslServeEverywhere, wslWatch = oldServe, oldWatch })
+		fakeWSLNet(t, "::1/128")
+
+		logs = &syncLogBuf{}
+		oldOut := log.Writer()
+		log.SetOutput(logs)
+		t.Cleanup(func() { log.SetOutput(oldOut) })
+
+		s = New()
+		stop, done := listening(t, s)
+		var once sync.Once
+		var doneErr error
+		waitDone = func() error {
+			once.Do(func() {
+				select {
+				case doneErr = <-done:
+				case <-time.After(15 * time.Second):
+					t.Fatal("ListenAndServe did not return")
+				}
+			})
+			return doneErr
+		}
+		t.Cleanup(func() { stop(); waitDone() })
+
+		at := "http://" + net.JoinHostPort("::1", port) + "/"
+		client := &http.Client{
+			Timeout:   time.Second,
+			Transport: &http.Transport{DisableKeepAlives: true},
+		}
+		deadline := time.Now().Add(10 * time.Second)
+		for {
+			res, err := client.Get(at)
+			if err == nil {
+				res.Body.Close()
+				break
+			}
+			if time.Now().After(deadline) {
+				t.Fatalf("WSL listener %s never answered: %v", at, err)
+			}
+			time.Sleep(10 * time.Millisecond)
+		}
+		return s, port, logs, stop, waitDone
+	}
+
+	t.Run("serveWSL leaves active listener for srv.Shutdown", func(t *testing.T) {
+		fresh(t)
+		ln, err := net.Listen("tcp", "127.0.0.1:0")
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { ln.Close() })
+		t.Setenv("MAGPIE_ADDR", ln.Addr().String())
+		oldServe, oldWatch := wslServeEverywhere, wslWatch
+		wslServeEverywhere, wslWatch = true, time.Hour
+		t.Cleanup(func() { wslServeEverywhere, wslWatch = oldServe, oldWatch })
+		fakeWSLNet(t, "::1/128")
+
+		s := &Server{ln: ln}
+		srv := &http.Server{Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { io.WriteString(w, "ok") })}
+		ctx, cancel := context.WithCancel(context.Background())
+		done := make(chan struct{})
+		go func() { s.serveWSL(ctx, srv); close(done) }()
+		t.Cleanup(func() { cancel(); <-done; srv.Close() })
+
+		at := "http://" + net.JoinHostPort("::1", Port()) + "/"
+		client := &http.Client{Timeout: time.Second, Transport: &http.Transport{DisableKeepAlives: true}}
+		for deadline := time.Now().Add(10 * time.Second); ; time.Sleep(10 * time.Millisecond) {
+			if res, err := client.Get(at); err == nil {
+				res.Body.Close()
+				break
+			}
+			if time.Now().After(deadline) {
+				t.Fatalf("WSL listener %s never answered", at)
+			}
+		}
+		cancel()
+		<-done
+		shutCtx, shutCancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer shutCancel()
+		if err := srv.Shutdown(shutCtx); err != nil {
+			t.Fatalf("srv.Shutdown returned %v, want nil", err)
+		}
+		if c, err := net.DialTimeout("tcp", net.JoinHostPort("::1", Port()), 200*time.Millisecond); err == nil {
+			c.Close()
+			t.Fatal("WSL listener stayed open after srv.Shutdown")
+		}
+	})
+
+	t.Run("idle shutdown with WSL listener", func(t *testing.T) {
+		_, port, logs, stop, waitDone := startWithWSL(t)
+		stop()
+		if err := waitDone(); err != nil {
+			t.Fatalf("ListenAndServe returned %v", err)
+		}
+		if out := logs.String(); strings.Contains(out, "requests still in flight") {
+			t.Fatalf("idle shutdown logged cut requests:\n%s", out)
+		}
+		if c, err := net.DialTimeout("tcp", net.JoinHostPort("::1", port), 200*time.Millisecond); err == nil {
+			c.Close()
+			t.Fatalf("WSL listener [::1]:%s stayed open after shutdown", port)
+		}
+	})
+
+	t.Run("handed-off idle shutdown with WSL listener", func(t *testing.T) {
+		s, port, logs, stop, waitDone := startWithWSL(t)
+		s.HandOff()
+		stop()
+		if err := waitDone(); err != nil {
+			t.Fatalf("ListenAndServe returned %v", err)
+		}
+		if out := logs.String(); strings.Contains(out, "requests still in flight") {
+			t.Fatalf("handed-off idle shutdown logged cut requests:\n%s", out)
+		}
+		if c, err := net.DialTimeout("tcp", net.JoinHostPort("::1", port), 200*time.Millisecond); err == nil {
+			c.Close()
+			t.Fatalf("WSL listener [::1]:%s stayed open after handed-off shutdown", port)
+		}
+	})
+
+	t.Run("in-flight request past drain still logs cut", func(t *testing.T) {
+		oldShort := shortDrain
+		shortDrain = 50 * time.Millisecond
+		t.Cleanup(func() { shortDrain = oldShort })
+
+		_, port, logs, stop, waitDone := startWithWSL(t)
+
+		asked, cut, release := make(chan struct{}, 1), make(chan struct{}, 1), make(chan struct{})
+		up := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			io.ReadAll(r.Body)
+			select {
+			case asked <- struct{}{}:
+			default:
+			}
+			select {
+			case <-r.Context().Done():
+				select {
+				case cut <- struct{}{}:
+				default:
+				}
+			case <-release:
+			}
+		}))
+		t.Cleanup(up.Close)
+		t.Cleanup(func() { close(release) })
+		if err := provider.Save(provider.Provider{ID: "slow", Name: "Slow", Key: "k", Chat: up.URL + "/v1", Models: []string{"m"}}); err != nil {
+			t.Fatal(err)
+		}
+
+		reqDone := make(chan struct{})
+		go func() {
+			defer close(reqDone)
+			req, _ := http.NewRequest("POST", "http://127.0.0.1:"+port+"/v1/chat/completions",
+				strings.NewReader(`{"model":"slow/m","messages":[{"role":"user","content":"hi"}]}`))
+			req.Header.Set("Content-Type", "application/json")
+			if res, err := (&http.Client{Transport: &http.Transport{DisableKeepAlives: true}}).Do(req); err == nil {
+				io.Copy(io.Discard, res.Body)
+				res.Body.Close()
+			}
+		}()
+		select {
+		case <-asked:
+		case <-time.After(10 * time.Second):
+			t.Fatal("upstream was never reached")
+		}
+
+		stop()
+		if err := waitDone(); err != nil {
+			t.Fatalf("ListenAndServe returned %v", err)
+		}
+		select {
+		case <-cut:
+		case <-time.After(5 * time.Second):
+			t.Fatal("in-flight upstream request was not canceled")
+		}
+		<-reqDone
+		if out := logs.String(); !strings.Contains(out, "requests still in flight; they are cut") {
+			t.Fatalf("expected cut-requests log when request outlives drain, got:\n%s", out)
+		}
+	})
 }

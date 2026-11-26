@@ -1059,7 +1059,12 @@ func (s *Server) ListenAndServe(ctx context.Context) error {
 		// away, and its client opens a new one
 		s.realtimes.end()
 		go func() { defer close(sockets); s.sockets.drain(c); s.realtimes.wait(c) }()
-		if err := srv.Shutdown(c); err != nil {
+		// Shutdown returns a listener's close error only after every active
+		// connection has drained (net/http.Server.Shutdown); a timeout with
+		// requests still in flight returns c.Err(). Ignore net.ErrClosed from
+		// a listener already closed by stopAccepting, Relisten, or serveWSL
+		// (#7729).
+		if err := srv.Shutdown(c); err != nil && !errors.Is(err, net.ErrClosed) {
 			// the requests still answering are cut where they are, and
 			// an agent streaming one reads a reply broken off (Codex:
 			// "error decoding response body")
