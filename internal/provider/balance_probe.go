@@ -302,19 +302,22 @@ func BalanceProbeState(p Provider) (eligible, undetected bool) {
 // queries in turn, and is what was found (false: none told a balance).
 // A query that answers 200 with its field read is the one; a failure to
 // reach the relay is not kept, so the next read looks again.
-func probeBalance(ctx context.Context, p Provider) (string, bool) {
+func probeBalance(ctx context.Context, p Provider) (string, bool, error) {
 	origins := probeOrigins(p)
 	k := balanceProbeKey(origins, p.Key)
 	probed.Lock()
 	f, seen := probedLocked()[k]
 	probed.Unlock()
 	if seen && time.Now().Before(f.until) {
-		return f.url, f.url != ""
+		return f.url, f.url != "", nil
 	}
 	found, reached, refused := "", false, false
 	for _, o := range origins {
 		for _, path := range balanceProbes {
-			ok, code := askProbe(ctx, p, o+path)
+			ok, code, err := askProbe(ctx, p, o+path)
+			if err != nil {
+				return f.url, f.url != "", err
+			}
 			reached = reached || code != 0
 			if o+path == f.url && (code == http.StatusUnauthorized || code == http.StatusForbidden) {
 				refused = true
@@ -329,7 +332,7 @@ func probeBalance(ctx context.Context, p Provider) (string, bool) {
 		}
 	}
 	if ctx.Err() != nil {
-		return "", false // cut short: nothing learnt
+		return "", false, nil // cut short: nothing learnt
 	}
 	wait := balanceProbeMiss
 	switch {
@@ -351,15 +354,15 @@ func probeBalance(ctx context.Context, p Provider) (string, bool) {
 		saveProbedLocked() // a relay that was down is asked again at once
 	}
 	probed.Unlock()
-	return found, found != ""
+	return found, found != "", nil
 }
 
 // askProbe asks one relay query as balanceRead asks it, and is whether it
 // told a balance, and the status the relay answered with (0: none).
-func askProbe(ctx context.Context, p Provider, raw string) (ok bool, code int) {
+func askProbe(ctx context.Context, p Provider, raw string) (ok bool, code int, retErr error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, raw, nil)
 	if err != nil {
-		return false, 0
+		return false, 0, nil
 	}
 	for k, v := range AuthHeaders(p, Chat) {
 		req.Header.Set(k, v)
@@ -368,17 +371,27 @@ func askProbe(ctx context.Context, p Provider, raw string) (ok bool, code int) {
 		req.Header.Set(k, withBalanceKey(v, p.Key, false))
 	}
 	req.Header.Set("Accept", "application/json")
+	if err := balanceReadLimits.take(ctx, req.URL.String()); err != nil {
+		return false, http.StatusTooManyRequests, err
+	}
 	res, err := Keyed(http.DefaultClient).Do(req)
 	if err != nil {
-		return false, 0
+		return false, 0, nil
 	}
 	defer res.Body.Close()
 	b, _ := io.ReadAll(io.LimitReader(res.Body, 1<<20))
+	if res.StatusCode == http.StatusTooManyRequests {
+		if err := balanceReadLimits.rateLimited(req.URL.String(), res.Header.Get("Retry-After"), b); err != nil {
+			return false, res.StatusCode, err
+		}
+	} else {
+		balanceReadLimits.clear(req.URL.String())
+	}
 	if res.StatusCode != http.StatusOK {
-		return false, res.StatusCode
+		return false, res.StatusCode, nil
 	}
 	q := p
 	q.BalanceURL, q.BalancePath = raw, ""
 	amount, err := readBalancePath(b, balancePathOf(q))
-	return err == nil && amount != "", res.StatusCode
+	return err == nil && amount != "", res.StatusCode, nil
 }

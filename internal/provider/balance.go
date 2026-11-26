@@ -1427,7 +1427,10 @@ func balanceRead(ctx context.Context, p Provider) (amount string, parts, split [
 	if !ok && probesBalance(p) {
 		// a relay added by hand: its balance where relays tell it, or
 		// no card (balance_probe.go)
-		u, found := probeBalance(ctx, p)
+		u, found, probeErr := probeBalance(ctx, p)
+		if probeErr != nil {
+			return "", nil, nil, nil, false, true, probeErr
+		}
 		if !found {
 			return "", nil, nil, nil, false, false, errNoBalance
 		}
@@ -1479,6 +1482,9 @@ func balanceRead(ctx context.Context, p Provider) (amount string, parts, split [
 		}
 	}
 	req.Header.Set("Accept", "application/json")
+	if err := balanceReadLimits.take(ctx, req.URL.String()); err != nil {
+		return "", nil, nil, nil, false, true, err
+	}
 	res, err := Keyed(http.DefaultClient).Do(req)
 	if err != nil {
 		if k := url.QueryEscape(p.Key); k != "" && strings.Contains(err.Error(), k) {
@@ -1489,6 +1495,13 @@ func balanceRead(ctx context.Context, p Provider) (amount string, parts, split [
 	}
 	defer res.Body.Close()
 	b, _ := io.ReadAll(io.LimitReader(res.Body, 1<<20))
+	if res.StatusCode == http.StatusTooManyRequests {
+		if err := balanceReadLimits.rateLimited(req.URL.String(), res.Header.Get("Retry-After"), b); err != nil {
+			return "", nil, nil, nil, false, true, err
+		}
+	} else {
+		balanceReadLimits.clear(req.URL.String())
+	}
 	if msg, refused := balanceRefusal(b); refused {
 		// said as the relay says it, whatever the status: not a field
 		// missing from a reply that was never the balance

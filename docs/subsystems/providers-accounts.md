@@ -555,6 +555,20 @@ a stand-in that lasts days still says why. Both fields also reach
 `magpie quota --json` and the gateway report. [`quota_last.go`](../../internal/provider/quota_last.go),
 `TestQuotaDeferredReadIsNotFailure`.
 
+Key balance cards share a one-minute cache on ordinary reads; an explicit
+refresh bypasses it. Reads to the same upstream origin are staggered by
+50 ms. A rate-limit 429 pauses reads to that endpoint until its
+`Retry-After`, or an exponential backoff with jitter when the header is
+absent. Reads already queued for that endpoint are skipped, while the last
+good balance remains on the card. A later read retries after the cooldown;
+the cooldown is process-local and doesn't rest model requests. Explicit
+balance/credit exhaustion 429s don't receive the rate-limit backoff.
+[`balance_rate_limit.go`](../../internal/provider/balance_rate_limit.go),
+[`balance.go`](../../internal/provider/balance.go),
+[`balance_probe.go`](../../internal/provider/balance_probe.go),
+`TestKeyBalancesBackOffAfter429` and
+`TestBalanceProbe429IsNotRememberedAsNoBalance`.
+
 Allowance readings are kept by provider, lowercased account and window in
 `quota-history.json` ([`quota_history.go`](../../internal/provider/quota_history.go)),
 for up to 45 days and 6000 points per window. Failed or stale readings add
