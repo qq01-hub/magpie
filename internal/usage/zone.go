@@ -13,14 +13,20 @@ import (
 // in UTC+8 under 1:00 (Outvi V on Discord). The page names its browser's
 // zone, and Zone is that zone here.
 
-var zones sync.Map // name → *time.Location, one for each name
+// The answer for a name depends on which clock counts as local.
+type zoneKey struct {
+	name  string
+	local *time.Location
+}
+
+var zones sync.Map // zoneKey → *time.Location
 
 // Zone is the time zone a browser names (an IANA name such as
-// "Asia/Shanghai"), the same *time.Location for every ask of one name, so
-// that a Filter holding it is the same cache key each time. A zone that
-// keeps this computer's clock, the page on this computer, is time.Local,
-// whose answers the tray and the TUI share. An empty name or one this
-// computer doesn't know is time.Local: the computer's days, as before.
+// "Asia/Shanghai"), the same *time.Location for every ask of one name in
+// the same local zone, so a Filter holding it is the same cache key each
+// time. A zone that keeps this computer's clock is time.Local, whose
+// answers the tray and the TUI share. An empty name or one this computer
+// doesn't know is time.Local: the computer's days, as before.
 //
 // With a day that starts after midnight (Settings' dayStart, ssharpcc on
 // X), the zone is that zone moved so its midnight is that hour (dayzone):
@@ -36,24 +42,25 @@ func Zone(name string) *time.Location {
 	if s.TimeZone != "" && settings.ValidTimeZone(s.TimeZone) {
 		name = s.TimeZone
 	}
-	return dayzone.Shift(zoneNamed(name), s.DayStart)
+	return dayzone.Shift(zoneNamed(name, time.Local), s.DayStart)
 }
 
-func zoneNamed(name string) *time.Location {
+func zoneNamed(name string, local *time.Location) *time.Location {
 	if name == "" || name == "Local" {
-		return time.Local
+		return local
 	}
-	if l, ok := zones.Load(name); ok {
+	key := zoneKey{name: name, local: local}
+	if l, ok := zones.Load(key); ok {
 		return l.(*time.Location)
 	}
 	loc, err := time.LoadLocation(name)
 	if err != nil {
-		return time.Local // not kept: any text can be asked for
+		return local // not kept: any text can be asked for
 	}
-	if sameClock(loc, time.Local) {
-		loc = time.Local
+	if sameClock(loc, local) {
+		loc = local
 	}
-	l, _ := zones.LoadOrStore(name, loc)
+	l, _ := zones.LoadOrStore(key, loc)
 	return l.(*time.Location)
 }
 

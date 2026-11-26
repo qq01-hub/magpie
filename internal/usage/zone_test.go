@@ -117,6 +117,23 @@ func TestUsageReadsTheViewersZone(t *testing.T) {
 	}
 }
 
+// A previous reader in a different system zone must not leave a cached
+// answer that makes a browser on this computer look remote (#7847).
+func TestNamedZoneFollowsTheLocalClock(t *testing.T) {
+	const name = "Asia/Shanghai"
+	shanghai := time.FixedZone("China Standard Time", 8*60*60)
+	remote := zoneNamed(name, time.UTC)
+	if remote == time.UTC || remote.String() != name {
+		t.Fatalf("Zone(%q) with UTC local = %v, want %s", name, remote, name)
+	}
+	if got := zoneNamed(name, shanghai); got != shanghai {
+		t.Errorf("Zone(%q) with Shanghai local = %v, want the local location %v", name, got, shanghai)
+	}
+	if got := zoneNamed(name, time.UTC); got != remote {
+		t.Errorf("Zone(%q) back in UTC = %v, want the original %v", name, got, remote)
+	}
+}
+
 // Zone is one *time.Location for each name, so a Filter holding it is one
 // cache key; a name this computer doesn't know, or one keeping its clock,
 // is this computer's own zone.
