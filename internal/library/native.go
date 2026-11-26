@@ -6,6 +6,7 @@ import (
 	"maps"
 	"os"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"sort"
 	"strings"
@@ -206,6 +207,12 @@ type codexProject struct {
 func codexProjects(trust map[string]struct {
 	TrustLevel string `toml:"trust_level"`
 }) []codexProject {
+	trustBy := make(map[string]string, len(trust))
+	for k, t := range trust {
+		if t.TrustLevel != "" {
+			trustBy[trustPathKey(k)] = t.TrustLevel
+		}
+	}
 	var out []codexProject
 	for _, dir := range nativeProjects() {
 		pr := codexProject{dir: dir, plugins: map[string]*bool{}}
@@ -250,11 +257,32 @@ func codexProjects(trust map[string]struct {
 					pr.trusted = t.TrustLevel == "trusted"
 					break look
 				}
+				if lvl := trustBy[trustPathKey(kk)]; lvl != "" {
+					pr.trusted = lvl == "trusted"
+					break look
+				}
 			}
 		}
 		out = append(out, pr)
 	}
 	return out
+}
+
+// trustPathKey normalizes a project path for matching Codex's config.toml
+// projects."<dir>" keys. On Windows, Codex writes lowercase paths and/or
+// \\?\ extended-length prefixes.
+func trustPathKey(dir string) string {
+	if runtime.GOOS == "windows" {
+		if rest, ok := strings.CutPrefix(dir, `\\?\`); ok {
+			if len(rest) >= 4 && strings.EqualFold(rest[:4], `UNC\`) {
+				dir = `\\` + rest[4:]
+			} else {
+				dir = rest
+			}
+		}
+		return strings.ToLower(filepath.Clean(dir))
+	}
+	return filepath.Clean(dir)
 }
 
 // pathSpellings are dir as written and with its links read (/var and

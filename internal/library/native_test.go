@@ -3,6 +3,8 @@ package library
 import (
 	"os"
 	"path/filepath"
+	"runtime"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -369,7 +371,7 @@ func TestNativeCodexPluginPerProject(t *testing.T) {
 	write(t, filepath.Join(own, "commondir"), "../..\n")
 	write(t, filepath.Join(wt, ".codex", "config.toml"), on)
 	conf := filepath.Join(home, ".codex", "config.toml")
-	write(t, conf, read(t, conf)+"\n[projects.\""+app+"\"]\ntrust_level = \"trusted\"\n\n[projects.\""+lab+"\"]\ntrust_level = \"untrusted\"\n")
+	write(t, conf, read(t, conf)+"\n[projects."+strconv.Quote(app)+"]\ntrust_level = \"trusted\"\n\n[projects."+strconv.Quote(lab)+"]\ntrust_level = \"untrusted\"\n")
 	for _, d := range []string{web, lab, quiet, wt} {
 		if err := os.MkdirAll(d, 0o755); err != nil {
 			t.Fatal(err)
@@ -406,5 +408,28 @@ func TestNativeCodexPluginPerProject(t *testing.T) {
 	// the other plugins no project names stay as they were
 	if a := nativeOf(t, ReadNative(), "codex", "codex-app-tools"); len(a.InProjects) != 0 {
 		t.Errorf("codex-app-tools: %+v", a.InProjects)
+	}
+
+	// On Windows, Codex writes lowercase or \\?\-prefixed project keys in
+	// config.toml (e.g. [projects."c:\\users\\..."] or [projects.'\\?\C:\...']).
+	if runtime.GOOS == "windows" {
+		base := read(t, conf)
+		base, _, _ = strings.Cut(base, "\n[projects.")
+		for _, key := range []string{strings.ToLower(app), `\\?\` + app} {
+			write(t, conf, base+"\n[projects."+strconv.Quote(key)+"]\ntrust_level = \"trusted\"\n")
+			p := nativeOf(t, ReadNative(), "codex", "chrome")
+			var found bool
+			for _, in := range p.InProjects {
+				if in.Dir == web {
+					found = true
+					if !in.Trusted || !is(in.Effective, true) {
+						t.Errorf("windows project key %q: got %+v, want Trusted=true Effective=true", key, in)
+					}
+				}
+			}
+			if !found {
+				t.Errorf("windows project key %q: %s missing from InProjects", key, web)
+			}
+		}
 	}
 }
