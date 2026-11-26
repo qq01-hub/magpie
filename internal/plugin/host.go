@@ -800,6 +800,32 @@ func OnListed(f func()) {
 	onListedMu.Unlock()
 }
 
+var (
+	onRelistedMu sync.Mutex
+	onRelisted   []func(before, now []Provider)
+)
+
+// OnRelisted registers f to be told the providers kept before and those
+// kept now each time the listing in the background, after a sign-in, a
+// sign-out, a plugin's change or its options (Cached), keeps another
+// list. f runs before that listing is done (Refreshed), so a model gone
+// with a removed account has left the picks by then. A listing asked for
+// (Providers: Fetch models, the hourly relist) is its caller's to compare.
+func OnRelisted(f func(before, now []Provider)) {
+	onRelistedMu.Lock()
+	onRelisted = append(onRelisted, f)
+	onRelistedMu.Unlock()
+}
+
+func relisted(before, now []Provider) {
+	onRelistedMu.Lock()
+	fs := append([]func(before, now []Provider){}, onRelisted...)
+	onRelistedMu.Unlock()
+	for _, f := range fs {
+		f(before, now)
+	}
+}
+
 func listed() {
 	changedNow()
 	onListedMu.Lock()

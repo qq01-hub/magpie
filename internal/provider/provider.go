@@ -30,6 +30,7 @@ import (
 	"github.com/yetone/magpie/internal/lastgood"
 	"github.com/yetone/magpie/internal/lazyre"
 	"github.com/yetone/magpie/internal/netproxy"
+	"github.com/yetone/magpie/internal/plugin"
 	"github.com/yetone/magpie/internal/settings"
 	"github.com/yetone/magpie/internal/steady"
 )
@@ -1538,11 +1539,26 @@ func delistedWith(p Provider, was *Provider) []string {
 // from one typed by hand, so the group stayed in this magpie's list for
 // good (CryptoSarom on X). It comes back with a list that has it
 // (relistPicks). A pick typed by hand was never set aside, and stays.
+//
+// A plugin's list is followed in the background too: the listing after a
+// sign-out sets aside the picks of models gone with the account
+// (plugin.OnRelisted), and an editor open meanwhile still holds them.
 func goneKeptAside(p Provider, was *Provider) ([]string, []string) {
-	if was == nil || len(was.Delisted) == 0 || len(p.Models) == 0 || !p.IsRemoteMagpie() {
+	if was == nil || len(was.Delisted) == 0 || len(p.Models) == 0 {
 		return p.Models, p.Delisted
 	}
+	plugged := false
+	if !p.IsRemoteMagpie() {
+		q, err := Find(p.ID)
+		if err != nil || !q.IsPlugin() {
+			return p.Models, p.Delisted
+		}
+		plugged = true
+	}
 	now := liveIDs(p.ID)
+	if plugged {
+		now = pluginListedIDs(plugin.Cached())[p.ID]
+	}
 	if len(now) == 0 {
 		return p.Models, p.Delisted // no list to tell by
 	}
