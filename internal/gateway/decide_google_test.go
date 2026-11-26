@@ -56,6 +56,21 @@ func (u *googleDecisionsUp) RoundTrip(r *http.Request) (*http.Response, error) {
 	if _, isObject := q["input"].(map[string]any); isObject || q["input"] == nil {
 		return reply(400, `{"error":{"code":400,"message":"type parameter is required at input[0]","status":"INVALID_ARGUMENT"}}`)
 	}
+	if qs, ok := q["questions"].(map[string]any); ok {
+		for name, v := range qs {
+			x, _ := v.(map[string]any)
+			if x["type"] != "noul" {
+				continue
+			}
+			if c, ok := x["criteria"].(map[string]any); ok {
+				for k := range c {
+					if k != "true_description" && k != "false_description" {
+						return reply(400, `{"error":{"message":"Unknown parameter '`+k+`' at 'questions.`+name+`.criteria'.","code":"invalid_request"}}`)
+					}
+				}
+			}
+		}
+	}
 	return reply(200, u.reply)
 }
 
@@ -137,5 +152,26 @@ func TestGoogleDecisionsTakesImages(t *testing.T) {
 	in, _ := json.Marshal(bodies[0]["input"])
 	if want := `[{"text":"{\"messages\":[{\"content\":\"Inspect the product in this photo.\",\"role\":\"user\"}]}","type":"text"},{"data":"iVBORw0KGgo=","mime_type":"image/png","type":"image"}]`; string(in) != want {
 		t.Fatalf("input %s\nwant %s", in, want)
+	}
+}
+
+// #7789: a System One noul question with true/false criteria keys goes to
+// Google's Decisions API with true_description/false_description instead of
+// failing with 400.
+func TestGoogleSystemOneNoulCriteria(t *testing.T) {
+	fresh(t)
+	up := &googleDecisionsUp{reply: `{"answers":{"b":{"type":"noul","noul":0.05,"confidence":0.94}},"usage":{"total_input_tokens":110,"total_output_tokens":0,"total_tokens":110}}`}
+	s := googleKey(t, up)
+	code, out := sendTo(s, "/v1/systemone", `{"model":"google/`+provider.GoogleDecision+`","state":{"message":"The export crashes the app."},"questions":{"b":{"type":"noul","instructions":"Is it about billing?","criteria":{"true":"billing","false":"other"}}}}`)
+	if code != 200 || !strings.Contains(out, `"noul":0.05`) {
+		t.Fatalf("System One noul: %d %s", code, out)
+	}
+	_, bodies := up.got()
+	if len(bodies) != 1 {
+		t.Fatalf("Google asked %d times", len(bodies))
+	}
+	c := bodies[0]["questions"].(map[string]any)["b"].(map[string]any)["criteria"].(map[string]any)
+	if len(c) != 2 || c["true_description"] != "billing" || c["false_description"] != "other" {
+		t.Fatalf("criteria %v", c)
 	}
 }

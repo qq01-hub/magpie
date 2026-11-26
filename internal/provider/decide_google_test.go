@@ -71,6 +71,15 @@ func TestGoogleDecideWire(t *testing.T) {
 	sameJSON(t, "object state", DecideAsk(ViaGoogle, GoogleDecision, []byte(obj)),
 		`{"model":"gemini-decision-1","input":[{"type":"text","text":"{\"message\":\"fix the build\",\"previous_message_kind\":\"coding\"}"},{"type":"image","data":"iVBORw0KGgo=","mime_type":"image/png"},{"type":"image","uri":"https://example.com/a.jpg"}],"questions":{"intent":{"type":"choice","instructions":"Which?","criteria":{"coding":"","chat":"small talk"}}}}`)
 
+	// noul criteria use true_description/false_description at Google (#7789)
+	noulTF := `{"model":"gemini-decision-1","state":{"message":"The export crashes the app."},"questions":{"b":{"type":"noul","instructions":"Is it about billing?","criteria":{"true":"billing","false":"other"}}}}`
+	sameJSON(t, "noul true/false criteria", DecideAsk(ViaGoogle, GoogleDecision, []byte(noulTF)),
+		`{"model":"gemini-decision-1","input":"{\"message\":\"The export crashes the app.\"}","questions":{"b":{"type":"noul","instructions":"Is it about billing?","criteria":{"true_description":"billing","false_description":"other"}}}}`)
+
+	noulEdge := `{"model":"gemini-decision-1","state":"hi","questions":{"part":{"type":"noul","instructions":"Only true?","criteria":{"true":"yes"}},"nilval":{"type":"noul","instructions":"Null?","criteria":{"true":null,"false":"no"}},"both":{"type":"noul","instructions":"Mixed?","criteria":{"true":"ignored","true_description":"kept","false":"other"}}}}`
+	sameJSON(t, "noul criteria edge cases", DecideAsk(ViaGoogle, GoogleDecision, []byte(noulEdge)),
+		`{"model":"gemini-decision-1","input":"hi","questions":{"part":{"type":"noul","instructions":"Only true?","criteria":{"true_description":"yes"}},"nilval":{"type":"noul","instructions":"Null?","criteria":{"true_description":"","false_description":"no"}},"both":{"type":"noul","instructions":"Mixed?","criteria":{"true_description":"kept","false_description":"other"}}}}`)
+
 	status, b := DecideResult(ViaGoogle, 200, []byte(googleNoulAnswer))
 	if status != 200 {
 		t.Fatalf("status %d", status)
@@ -90,6 +99,9 @@ func TestGoogleDecideWire(t *testing.T) {
 	for _, via := range []string{ViaSystemOne, ViaVercel} {
 		if got := DecideAsk(via, "jev-latest", []byte(obj)); string(got) != obj {
 			t.Fatalf("%s: %s", via, got)
+		}
+		if got := DecideAsk(via, "jev-latest", []byte(noulTF)); string(got) != noulTF {
+			t.Fatalf("%s noul: %s", via, got)
 		}
 		if status, got := DecideResult(via, 200, []byte(googleNoulAnswer)); status != 200 || string(got) != googleNoulAnswer {
 			t.Fatalf("%s answer: %d %s", via, status, got)

@@ -119,8 +119,9 @@ func DecideAnswer(via string, b []byte) []byte {
 // blocks after it, and any other URL a block at that uri. Its questions
 // are System One's, noul, choice and score, but a choice's option with no
 // description (null, as magpie's "none of these" goes) has an empty one,
-// which Google takes. Everything else goes as it is, for Google to refuse
-// what it has no place for with a 400 naming it.
+// which Google takes, and a noul's true/false criteria keys are renamed to
+// Google's true_description/false_description. Everything else goes as it is,
+// for Google to refuse what it has no place for with a 400 naming it.
 func googleAsk(q map[string]any, body []byte) []byte {
 	state, ok := q["state"]
 	if !ok {
@@ -155,9 +156,32 @@ func googleAsk(q map[string]any, body []byte) []byte {
 	if qs, ok := q["questions"].(map[string]any); ok {
 		for _, v := range qs {
 			x, _ := v.(map[string]any)
-			if c, ok := x["criteria"].(map[string]any); ok && x["type"] == "choice" {
+			c, ok := x["criteria"].(map[string]any)
+			if !ok {
+				continue
+			}
+			switch x["type"] {
+			case "choice":
 				for k, d := range c {
 					if d == nil {
+						c[k] = ""
+					}
+				}
+			case "noul":
+				for _, pair := range [][2]string{{"true", "true_description"}, {"false", "false_description"}} {
+					if d, has := c[pair[0]]; has {
+						delete(c, pair[0])
+						if _, kept := c[pair[1]]; !kept {
+							if d == nil {
+								c[pair[1]] = ""
+							} else {
+								c[pair[1]] = d
+							}
+						}
+					}
+				}
+				for _, k := range []string{"true_description", "false_description"} {
+					if d, has := c[k]; has && d == nil {
 						c[k] = ""
 					}
 				}
