@@ -39,14 +39,55 @@ type cxCheckpoint struct{ Total, Last cxUsage }
 
 // forkedFrom notes, from the first session_meta of the rollout at path,
 // the parent the rollout was forked from, and reads that parent's
-// checkpoints.
+// checkpoints (following a paginated parent's history_base chain when its
+// earlier lines live in an ancestor rollout, #7818).
 func (s *codexUsageState) forkedFrom(path, parent string) {
 	if parent == "" || path == "" {
 		return
 	}
-	if p := codexRolloutOf(path, parent); p != "" {
-		s.Copied, s.CopiedTurns = codexCheckpointsOf(p)
+	p := codexRolloutOf(path, parent)
+	if p == "" {
+		return
 	}
+	marks, turns, base := codexCheckpointsOf(p)
+	if base == "" {
+		s.Copied, s.CopiedTurns = marks, turns
+		return
+	}
+	seen := map[string]bool{parent: true}
+	merged := map[cxCheckpoint]bool{}
+	for k := range marks {
+		merged[k] = true
+	}
+	var mergedTurns map[string]bool
+	if len(turns) > 0 {
+		mergedTurns = map[string]bool{}
+		for k := range turns {
+			mergedTurns[k] = true
+		}
+	}
+	for range 8 {
+		if base == "" || seen[base] {
+			break
+		}
+		seen[base] = true
+		ap := codexRolloutOf(path, base)
+		if ap == "" {
+			break
+		}
+		am, at, next := codexCheckpointsOf(ap)
+		for k := range am {
+			merged[k] = true
+		}
+		for k := range at {
+			if mergedTurns == nil {
+				mergedTurns = map[string]bool{}
+			}
+			mergedTurns[k] = true
+		}
+		base = next
+	}
+	s.Copied, s.CopiedTurns = merged, mergedTurns
 }
 
 // ownTurn ends the copies at a turn of the fork's own. A turn id of
@@ -87,31 +128,46 @@ type codexForkParent struct {
 	mod   time.Time
 	marks map[cxCheckpoint]bool
 	turns map[string]bool
+	base  string
 }
 
 const codexForksKept = 8
 
 // codexCheckpointsOf are the token_count checkpoints of the rollout at
-// path, and its turn ids (nil when it names none); nil when it can't be
-// read whole.
-func codexCheckpointsOf(path string) (map[cxCheckpoint]bool, map[string]bool) {
+// path, its turn ids (nil when it names none), and the history_base thread
+// id when the rollout is paginated; nil when it can't be read whole.
+func codexCheckpointsOf(path string) (map[cxCheckpoint]bool, map[string]bool, string) {
 	fi, err := os.Stat(path)
 	if err != nil {
-		return nil, nil
+		return nil, nil, ""
 	}
 	codexForks.Lock()
 	for _, k := range codexForks.kept {
 		if k.path == path && k.size == fi.Size() && k.mod.Equal(fi.ModTime()) {
 			codexForks.Unlock()
-			return k.marks, k.turns
+			return k.marks, k.turns, k.base
 		}
 	}
 	codexForks.Unlock()
 	marks := map[cxCheckpoint]bool{}
 	var turns map[string]bool
+	var base string
 	err = eachLine(path, func(b []byte) {
 		h := b[:min(len(b), 1024)]
 		top, payload := typeAfter(h, cxType), typeAfter(h, cxPayload)
+		if top == "session_meta" && base == "" {
+			var l struct {
+				Payload struct {
+					HistoryBase *struct {
+						ThreadID string `json:"thread_id"`
+					} `json:"history_base"`
+				} `json:"payload"`
+			}
+			if json.Unmarshal(b, &l) == nil && l.Payload.HistoryBase != nil {
+				base = l.Payload.HistoryBase.ThreadID
+			}
+			return
+		}
 		if top == "turn_context" || top == "event_msg" && payload == "task_started" {
 			var l struct {
 				Payload struct {
@@ -138,15 +194,15 @@ func codexCheckpointsOf(path string) (map[cxCheckpoint]bool, map[string]bool) {
 		}
 	})
 	if err != nil {
-		return nil, nil
+		return nil, nil, ""
 	}
 	codexForks.Lock()
-	codexForks.kept = append(codexForks.kept, codexForkParent{path, fi.Size(), fi.ModTime(), marks, turns})
+	codexForks.kept = append(codexForks.kept, codexForkParent{path, fi.Size(), fi.ModTime(), marks, turns, base})
 	if n := len(codexForks.kept); n > codexForksKept {
 		codexForks.kept = append([]codexForkParent(nil), codexForks.kept[n-codexForksKept:]...)
 	}
 	codexForks.Unlock()
-	return marks, turns
+	return marks, turns, base
 }
 
 // codexRolloutOf is the rollout of thread id in the Codex folder that

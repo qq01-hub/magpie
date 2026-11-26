@@ -487,10 +487,16 @@ func (s *state) use(date, model string, t Tokens) {
 func (s *state) unuse(date, model string, t Tokens) {
 	if i, ok := s.Models.find(model); ok {
 		s.Models[i].v.sub(t)
+		if s.Models[i].v.zero() {
+			s.Models.del(model)
+		}
 	}
 	if d := s.Days.of(date); d != nil {
 		if i, ok := d.Models.find(model); ok {
 			d.Models[i].v.sub(t)
+			if d.Models[i].v.zero() {
+				d.Models.del(model)
+			}
 		}
 	}
 }

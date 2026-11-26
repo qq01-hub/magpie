@@ -1160,7 +1160,11 @@ func codexCallLine(st *callFile, b []byte) {
 			r.Upstream = st.str(p.Upstream)
 		}
 		if p.Model != "" {
+			wasEmpty := r.Model == ""
 			r.Model = st.str(p.Model)
+			if wasEmpty {
+				st.codexBackfillModel(r.Model)
+			}
 		}
 		r.Effort = st.str(string(p.Effort))
 		if p.Cwd != "" {
@@ -1185,7 +1189,11 @@ func codexCallLine(st *callFile, b []byte) {
 			r.Upstream = st.str(p.Settings.Upstream)
 		}
 		if p.Settings.Model != "" {
+			wasEmpty := r.Model == ""
 			r.Model = st.str(p.Settings.Model)
+			if wasEmpty {
+				st.codexBackfillModel(r.Model)
+			}
 		}
 		r.saveContext()
 	case l.Type == "event_msg" && p.Type == "task_complete":
@@ -1226,6 +1234,15 @@ func (r *cxRun) saveContext() {
 func (st *callFile) markCall(i int) {
 	if st.dirty != nil {
 		st.dirty[i] = true
+	}
+}
+
+func (st *callFile) codexBackfillModel(model string) {
+	for _, ch := range st.CX.Usage.backfillModel(model) {
+		if ch.Index >= 0 && ch.Index < len(st.Calls) && st.Calls[ch.Index].Model == "" {
+			st.Calls[ch.Index].Model = ch.Value.Model
+			st.markCall(ch.Index)
+		}
 	}
 }
 

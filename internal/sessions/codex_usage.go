@@ -324,6 +324,34 @@ func (s *codexUsageState) model(turn, fallback string) string {
 	return fallback
 }
 
+// backfillModel sets model on any earlier entries recorded before the rollout
+// named its first model (such as a leading compacted snapshot or early
+// token_count before the first turn_context or thread_settings_applied, #7818),
+// returning each updated entry as a change for both readers.
+func (s *codexUsageState) backfillModel(model string) []*codexChange {
+	if model == "" {
+		return nil
+	}
+	var out []*codexChange
+	for i := range s.Entries {
+		if s.Entries[i].Model != "" {
+			continue
+		}
+		old := s.Entries[i]
+		v := old
+		v.Model = model
+		s.Entries[i] = v
+		if v.Compaction && v.ResponseID != "" {
+			key := v.Session + "\x00" + v.ResponseID
+			if _, ok := s.Compactions[key]; ok {
+				s.Compactions[key] = v
+			}
+		}
+		out = append(out, &codexChange{Index: i, Old: &old, Value: v})
+	}
+	return out
+}
+
 func (s *codexUsageState) context(session, turn, model string) {
 	s.ownTurn(turn)
 	if turn != "" && turn != s.Turn {
