@@ -3557,11 +3557,13 @@ func providerRoutes(mux *http.ServeMux, w Windows) {
 			if q, err := provider.Find(p.ID); err == nil {
 				p = q
 			}
-			if p.IsRemoteMagpie() {
+			if p.IsRemoteMagpie() || p.IsPlugin() {
 				// and those set aside before it: another magpie's list
 				// is followed in the background, so an editor opened
 				// before still holds a pick that list dropped, and its
-				// Save put it back (CryptoSarom on X)
+				// Save put it back (CryptoSarom on X); so is a plugin's,
+				// whose listing after a sign-out sets aside the models
+				// only the removed account listed
 				for _, m := range p.Delisted {
 					if !slices.Contains(dropped, m) {
 						dropped = append(dropped, m)

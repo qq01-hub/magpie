@@ -97,6 +97,20 @@ func pluginListedIDs(ps []plugin.Provider) map[string]map[string]bool {
 	return out
 }
 
+// The listing after a sign-out drops the picks of models gone with the
+// account too. A plugin whose keys list different models (a new-api
+// relay's plugin, one key with GPT, another with Gemini) kept the picks of
+// a key removed: the next list was short of them already, so Fetch models
+// and the hourly relist found nothing gone and took them for ones typed in
+// by hand, and agents were offered models no key served.
+func init() {
+	plugin.OnRelisted(func(before, now []plugin.Provider) {
+		for id, gone := range dropGonePluginPicks(before, now) {
+			log.Printf("%s: %v left its plugin's list, and its picks until it lists them again", id, gone)
+		}
+	})
+}
+
 // dropGonePluginPicks takes out of each plugin provider's picks the
 // models before listed and now doesn't, and answers them by provider. A
 // pick neither listed was typed in by hand, and stays.

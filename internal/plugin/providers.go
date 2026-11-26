@@ -354,13 +354,21 @@ func Providers(ctx context.Context) ([]Provider, error) {
 // epoch, when given, is the invalidation the read began under: a newer
 // one that went by meanwhile stands, and ps is then only given back.
 func commitProviders(ps []Provider, epoch *uint64) []Provider {
+	ps, _ = keepProviders(ps, epoch)
+	return ps
+}
+
+// keepProviders is commitProviders, and gives the list kept before too
+// when the one kept now is another: nil when it is the same, nothing was
+// kept before, or a newer invalidation stood.
+func keepProviders(ps []Provider, epoch *uint64) (kept, before []Provider) {
 	// Serialize publishers without blocking Cached on Windows rename retries.
 	provWriteMu.Lock()
 	defer provWriteMu.Unlock()
 	provMu.Lock()
 	if epoch != nil && provEpoch != *epoch {
 		provMu.Unlock()
-		return ps
+		return ps, nil
 	}
 	ps = keepListed(ps, provCache)
 	ps = keepUnloaded(ps, provCache)
@@ -380,8 +388,9 @@ func commitProviders(ps []Provider, epoch *uint64) []Provider {
 	}
 	if err != nil || !sameList(was, b) {
 		listed()
+		return ps, was
 	}
-	return ps
+	return ps, nil
 }
 
 // sameList reports whether the providers was and the list b marshals to
@@ -415,7 +424,9 @@ var refreshProviders = func(ctx context.Context, epoch uint64) error {
 	if err := callWithTimeout(ctx, "providers", listingArgs(), &ps, refreshDeadline); err != nil {
 		return err
 	}
-	commitProviders(ps, &epoch)
+	if kept, before := keepProviders(ps, &epoch); before != nil {
+		relisted(before, kept)
+	}
 	return nil
 }
 
