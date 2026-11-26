@@ -115,41 +115,44 @@ func DecideAnswer(via string, b []byte) []byte {
 // input, text as it is and an object or list as its JSON text ("Serialize
 // JSON objects and arrays to a string and pass them as text"), where an
 // object would be read as a content block and refused (400 "type
-// parameter is required at input[0]"); its images, data: URLs, are image
-// blocks after it, and any other URL a block at that uri. Its questions
-// are System One's, noul, choice and score, but a choice's option with no
-// description (null, as magpie's "none of these" goes) has an empty one,
-// which Google takes. Everything else goes as it is, for Google to refuse
-// what it has no place for with a 400 naming it.
+// parameter is required at input[0]"); its images and audio, base64 data:
+// URLs or URIs, become image and audio blocks after it (or the whole input
+// when state is absent or empty). Its questions are System One's, noul,
+// choice and score, but a choice's option with no description (null, as
+// magpie's "none of these" goes) has an empty one, which Google takes.
+// Everything else goes as it is, for Google to refuse what it has no place
+// for with a 400 naming it.
 func googleAsk(q map[string]any, body []byte) []byte {
-	state, ok := q["state"]
-	if !ok {
+	state, hasState := q["state"]
+	var media []any
+	for _, m := range []struct{ key, kind string }{{"images", "image"}, {"audio", "audio"}} {
+		if xs, ok := q[m.key].([]any); ok {
+			delete(q, m.key)
+			for _, x := range xs {
+				u, _ := x.(string)
+				if u == "" {
+					continue
+				}
+				media = append(media, googleMediaBlock(m.kind, u))
+			}
+		}
+	}
+	if !hasState && len(media) == 0 {
 		return body
 	}
 	delete(q, "state")
 	text, isText := state.(string)
-	if !isText {
+	if hasState && !isText {
 		b, _ := json.Marshal(state)
 		text = string(b)
 	}
 	var input any = text
-	if ims, ok := q["images"].([]any); ok {
-		delete(q, "images")
-		blocks := []any{map[string]any{"type": "text", "text": text}}
-		for _, im := range ims {
-			u, _ := im.(string)
-			if u == "" {
-				continue
-			}
-			block := map[string]any{"type": "image", "uri": u}
-			if meta, data, ok := strings.Cut(strings.TrimPrefix(u, "data:"), ","); ok && strings.HasPrefix(u, "data:") && strings.HasSuffix(meta, ";base64") {
-				block = map[string]any{"type": "image", "data": data, "mime_type": strings.TrimSuffix(meta, ";base64")}
-			}
-			blocks = append(blocks, block)
+	if len(media) > 0 {
+		var blocks []any
+		if hasState && (!isText || text != "") {
+			blocks = append(blocks, map[string]any{"type": "text", "text": text})
 		}
-		if len(blocks) > 1 {
-			input = blocks
-		}
+		input = append(blocks, media...)
 	}
 	q["input"] = input
 	if qs, ok := q["questions"].(map[string]any); ok {
@@ -166,6 +169,18 @@ func googleAsk(q map[string]any, body []byte) []byte {
 	}
 	b, _ := json.Marshal(q)
 	return b
+}
+
+// googleMediaBlock translates a System One media entry (base64 data: URL or
+// URI) into a Google Decisions API content block of kind ("image", "audio").
+func googleMediaBlock(kind, u string) map[string]any {
+	if rest, ok := strings.CutPrefix(u, "data:"); ok {
+		if meta, data, ok := strings.Cut(rest, ","); ok && strings.HasSuffix(meta, ";base64") {
+			mime, _, _ := strings.Cut(strings.TrimSuffix(meta, ";base64"), ";")
+			return map[string]any{"type": kind, "data": data, "mime_type": strings.TrimSpace(mime)}
+		}
+	}
+	return map[string]any{"type": kind, "uri": u}
 }
 
 // DecideResult is a decision API's answer, status and body, as System

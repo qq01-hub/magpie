@@ -71,6 +71,28 @@ func TestGoogleDecideWire(t *testing.T) {
 	sameJSON(t, "object state", DecideAsk(ViaGoogle, GoogleDecision, []byte(obj)),
 		`{"model":"gemini-decision-1","input":[{"type":"text","text":"{\"message\":\"fix the build\",\"previous_message_kind\":\"coding\"}"},{"type":"image","data":"iVBORw0KGgo=","mime_type":"image/png"},{"type":"image","uri":"https://example.com/a.jpg"}],"questions":{"intent":{"type":"choice","instructions":"Which?","criteria":{"coding":"","chat":"small talk"}}}}`)
 
+	// #7790: audio array carries base64 data URLs (including codec params) and URIs
+	// as Google Decisions audio blocks, beside images or audio-only.
+	withAudio := `{"model":"gemini-decision-1","state":"Classify this clip","questions":{"q":{"type":"choice","instructions":"Which?","criteria":{"speech":"spoken","music":"song"}}},"audio":["data:audio/wav;base64,UklGRg==","data:audio/webm;codecs=opus;base64,GkXf","https://example.com/clip.mp3"]}`
+	sameJSON(t, "text and audio", DecideAsk(ViaGoogle, GoogleDecision, []byte(withAudio)),
+		`{"model":"gemini-decision-1","input":[{"type":"text","text":"Classify this clip"},{"type":"audio","data":"UklGRg==","mime_type":"audio/wav"},{"type":"audio","data":"GkXf","mime_type":"audio/webm"},{"type":"audio","uri":"https://example.com/clip.mp3"}],"questions":{"q":{"type":"choice","instructions":"Which?","criteria":{"speech":"spoken","music":"song"}}}}`)
+
+	audioOnly := `{"model":"gemini-decision-1","audio":["data:audio/wav;base64,UklGRg=="],"questions":{"q":{"type":"choice","instructions":"Which?","criteria":{"speech":"spoken","music":"song"}}}}`
+	sameJSON(t, "audio only without state", DecideAsk(ViaGoogle, GoogleDecision, []byte(audioOnly)),
+		`{"model":"gemini-decision-1","input":[{"type":"audio","data":"UklGRg==","mime_type":"audio/wav"}],"questions":{"q":{"type":"choice","instructions":"Which?","criteria":{"speech":"spoken","music":"song"}}}}`)
+
+	emptyStateAudio := `{"model":"gemini-decision-1","state":"","audio":["data:audio/wav;base64,UklGRg=="],"questions":{"q":{"type":"choice","instructions":"Which?","criteria":{"speech":"spoken","music":"song"}}}}`
+	sameJSON(t, "audio only with empty state", DecideAsk(ViaGoogle, GoogleDecision, []byte(emptyStateAudio)),
+		`{"model":"gemini-decision-1","input":[{"type":"audio","data":"UklGRg==","mime_type":"audio/wav"}],"questions":{"q":{"type":"choice","instructions":"Which?","criteria":{"speech":"spoken","music":"song"}}}}`)
+
+	imagesAndAudio := `{"model":"gemini-decision-1","state":"Inspect both","images":["data:image/png;base64,iVBORw0KGgo="],"audio":["data:audio/wav;base64,UklGRg=="],"questions":{"q":{"type":"choice","instructions":"Which?","criteria":{"ok":"ok"}}}}`
+	sameJSON(t, "images and audio", DecideAsk(ViaGoogle, GoogleDecision, []byte(imagesAndAudio)),
+		`{"model":"gemini-decision-1","input":[{"type":"text","text":"Inspect both"},{"type":"image","data":"iVBORw0KGgo=","mime_type":"image/png"},{"type":"audio","data":"UklGRg==","mime_type":"audio/wav"}],"questions":{"q":{"type":"choice","instructions":"Which?","criteria":{"ok":"ok"}}}}`)
+
+	emptyAudio := `{"model":"gemini-decision-1","state":"text only","audio":[],"questions":{"q":{"type":"choice","instructions":"Which?","criteria":{"ok":"ok"}}}}`
+	sameJSON(t, "empty audio array dropped", DecideAsk(ViaGoogle, GoogleDecision, []byte(emptyAudio)),
+		`{"model":"gemini-decision-1","input":"text only","questions":{"q":{"type":"choice","instructions":"Which?","criteria":{"ok":"ok"}}}}`)
+
 	status, b := DecideResult(ViaGoogle, 200, []byte(googleNoulAnswer))
 	if status != 200 {
 		t.Fatalf("status %d", status)

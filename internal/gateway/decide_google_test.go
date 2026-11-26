@@ -139,3 +139,39 @@ func TestGoogleDecisionsTakesImages(t *testing.T) {
 		t.Fatalf("input %s\nwant %s", in, want)
 	}
 }
+
+// #7790: /v1/systemone carries audio data URLs / URIs to Google's
+// gemini-decision-1 as audio input blocks, both alongside state text and
+// audio-only without state.
+func TestGoogleSystemOneTakesAudio(t *testing.T) {
+	fresh(t)
+	up := &googleDecisionsUp{reply: `{"answers":{"kind":{"type":"choice","choice":"speech","confidence":0.95,"probabilities":{"speech":0.95,"music":0.05}}},"usage":{"total_input_tokens":242,"total_output_tokens":0,"total_tokens":242}}`}
+	s := googleKey(t, up)
+
+	code, out := sendTo(s, "/v1/systemone", `{"model":"google/`+provider.GoogleDecision+`","state":"Classify this audio clip","audio":["data:audio/wav;base64,UklGRg=="],"questions":{"kind":{"type":"choice","instructions":"What is it?","criteria":{"speech":"human voice","music":"music"}}}}`)
+	if code != 200 || !strings.Contains(out, `"choice":"speech"`) || !strings.Contains(out, `"input_tokens":242`) {
+		t.Fatalf("System One with state+audio: %d %s", code, out)
+	}
+	code, out = sendTo(s, "/v1/systemone", `{"model":"google/`+provider.GoogleDecision+`","audio":["data:audio/wav;base64,UklGRg==","https://example.com/clip.mp3"],"questions":{"kind":{"type":"choice","instructions":"What is it?","criteria":{"speech":"human voice","music":"music"}}}}`)
+	if code != 200 || !strings.Contains(out, `"choice":"speech"`) {
+		t.Fatalf("System One audio-only: %d %s", code, out)
+	}
+	_, bodies := up.got()
+	if len(bodies) != 2 {
+		t.Fatalf("Google asked %d times, want 2", len(bodies))
+	}
+	if _, hasAudio := bodies[0]["audio"]; hasAudio {
+		t.Fatalf("top-level audio field leaked to Google: %v", bodies[0])
+	}
+	in0, _ := json.Marshal(bodies[0]["input"])
+	if want := `[{"text":"Classify this audio clip","type":"text"},{"data":"UklGRg==","mime_type":"audio/wav","type":"audio"}]`; string(in0) != want {
+		t.Fatalf("body[0].input = %s\nwant %s", in0, want)
+	}
+	if _, hasAudio := bodies[1]["audio"]; hasAudio {
+		t.Fatalf("top-level audio field leaked to Google on audio-only: %v", bodies[1])
+	}
+	in1, _ := json.Marshal(bodies[1]["input"])
+	if want := `[{"data":"UklGRg==","mime_type":"audio/wav","type":"audio"},{"type":"audio","uri":"https://example.com/clip.mp3"}]`; string(in1) != want {
+		t.Fatalf("body[1].input = %s\nwant %s", in1, want)
+	}
+}
