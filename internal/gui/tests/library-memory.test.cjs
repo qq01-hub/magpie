@@ -116,7 +116,10 @@ function server(lang, state, sent, dist, sem) {
       if (route.request().method() === "POST") {
         const body = route.request().postDataJSON();
         sent.push({ path: url.pathname, body });
-        if (url.pathname === "/api/memory/digest") state.digest = body.on;
+        if (url.pathname === "/api/memory/digest") {
+          if ("on" in body) state.digest = body.on;
+          if ("omitWhy" in body) state.digestOmitWhy = body.omitWhy;
+        }
         else if (url.pathname === "/api/memory/remove") state.memories = state.memories.filter((m) => !body.ids.includes(m.id));
         else if (body.id) Object.assign(state.memories.find((m) => m.id === body.id), body, { id: body.id });
         else state.memories.push({ id: "m" + (state.memories.length + 1), kind: "preference", scope: "global", origin: "user", status: "active", created: at(6), updated: at(6), ...body });

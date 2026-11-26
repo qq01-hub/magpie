@@ -1317,6 +1317,15 @@ magpie.plugin("library", (ctx) => {
     const sw = toggle(mem.digest, t("In the agents' instructions"), (on) => memChange("memory/digest", { on }, on ? t("The agents read the memories' summary") : t("The memories' summary is taken out of the agents' instructions")));
     row.append(glyph(GLYPH.doc), who, sw);
     card.append(row);
+    if (mem.digest) {
+      const whyRow = el("div", "row lib-row lib-memdigest-why");
+      const whyWho = el("div", "who");
+      whyWho.append(el("div", "name", t("Include reasons in summary")));
+      whyWho.append(el("div", "sub", t("Leaves out (why: …) from injected instructions when off; still kept here")));
+      const whySw = toggle(!mem.digestOmitWhy, t("Include reasons in summary"), (on) => memChange("memory/digest", { omitWhy: !on }, on ? t("Reasons are shown in the memories' summary") : t("Reasons are left out of the memories' summary")));
+      whyRow.append(glyph(GLYPH.rule), whyWho, whySw);
+      card.append(whyRow);
+    }
     if (dist) card.append(distillRow(), dreamRow());
     if (sem) card.append(semRow());
     if (!lib.servers.some((s) => s.name === "magpie-memory")) {
