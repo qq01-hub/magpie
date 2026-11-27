@@ -1027,7 +1027,7 @@ func fetchPage(ctx context.Context, url, key string, anthropic bool, headers map
 			// ["embeddings"] for an embedding model
 			ins, outs = Kinds(strs(r.Inputs)), Kinds(strs(r.Outputs))
 		}
-		if ins == nil && len(r.Modalities.Flat) > 0 {
+		if ins == nil && r.Modalities.Flat != nil {
 			// a flat "modalities": ["text", "image"] array, where no input
 			// list was named separately
 			ins = Kinds(r.Modalities.Flat)
@@ -1220,6 +1220,7 @@ type liveModalities struct {
 }
 
 func (m *liveModalities) UnmarshalJSON(data []byte) error {
+	*m = liveModalities{}
 	var obj struct {
 		Input            []string `json:"input"`
 		Output           []string `json:"output"`
