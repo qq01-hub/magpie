@@ -633,7 +633,12 @@ func (s *Server) watchUnrouted(w http.ResponseWriter, r *http.Request, f *inflig
 	held := new(atomic.Pointer[unroutedHold])
 	held.Store(u)
 	r = r.WithContext(context.WithValue(ctx, unroutedKey{}, held))
-	if r.Body != nil && r.Body != http.NoBody {
+	if b, ok := r.Body.(socketPostBody); ok {
+		// The whole socket frame arrived before this POST was assembled.
+		u.bodyRead.Store(int64(b.Len()))
+		u.bodyLast.Store(time.Now().UnixNano())
+		u.bodyEnded.Store(true)
+	} else if r.Body != nil && r.Body != http.NoBody {
 		r.Body = waitedBody{r.Body, u}
 	}
 	u.r = r
