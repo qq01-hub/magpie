@@ -198,3 +198,59 @@ func TestCodexGeneratedImagesPastOldLimit(t *testing.T) {
 		}
 	}
 }
+
+func TestOversizedAgyRemoteCompactAndContinue(t *testing.T) {
+	if testing.Short() {
+		t.Skip("512 MiB request")
+	}
+	codexMemory(t, 32<<30)
+	largeBodyRoom(t)
+	f := &fake{t: t, reply: wholeSummary(provider.Responses)}
+	setup(t, provider.Responses, f)
+	up := httptest.NewServer(f)
+	defer up.Close()
+	if err := provider.Save(provider.Provider{ID: "agy-cli", Name: "AGY", Key: "k", Models: []string{"m1"}, Responses: up.URL + "/v1"}); err != nil {
+		t.Fatal(err)
+	}
+	var b strings.Builder
+	b.Grow(defaultBodyLimit + 2<<20)
+	b.WriteString(`{"model":"agy-cli/m1","stream":true,"input":[`)
+	img := strings.Repeat("AAAA", 1<<18)
+	for b.Len() <= defaultBodyLimit {
+		b.WriteString(`{"role":"user","content":[{"type":"input_image","image_url":"data:image/png;base64,`)
+		b.WriteString(img)
+		b.WriteString(`"}]},`)
+	}
+	b.WriteString(`{"role":"user","content":"keep-this-detail"},{"type":"compaction_trigger"}]}`)
+	code, response := codexPost(t, b.String())
+	if code != 200 || compactedText(t, response) != "SUMMARY" || !bytes.Contains(f.got, []byte("keep-this-detail")) || !bytes.Contains(f.got, []byte("Historical image omitted")) {
+		t.Fatalf("compaction status %d, provider bytes %d", code, len(f.got))
+	}
+	var sealed string
+	for _, ev := range events(response) {
+		if item, ok := ev["item"].(map[string]any); ok && item["type"] == "compaction" {
+			sealed, _ = item["encrypted_content"].(string)
+		}
+	}
+	if sealed == "" {
+		t.Fatal("missing compaction item")
+	}
+	code, _ = codexPost(t, `{"model":"agy-cli/m1","stream":true,"input":[{"type":"compaction","encrypted_content":"`+sealed+`"},{"role":"user","content":"continue"}]}`)
+	if code != 200 || !bytes.Contains(f.got, []byte("SUMMARY")) {
+		t.Fatalf("continuation status %d", code)
+	}
+}
+
+func TestAgyCompactKeepsUnusableHistory(t *testing.T) {
+	image := `{"role":"user","content":[{"type":"input_image","image_url":"data:image/png;base64,` + strings.Repeat("A", 600) + `"}]}`
+	for _, tail := range []string{
+		`{"role":"user","content":"normal turn"}`,
+		`"invalid item",{"type":"compaction_trigger"}`,
+		`{"role":"user","content":"` + strings.Repeat("x", 512) + `"},{"type":"compaction_trigger"}`,
+	} {
+		body := []byte(`{"input":[` + image + "," + tail + "]}")
+		if got := compactLargeAgyHistory(body, 256); !bytes.Equal(got, body) {
+			t.Fatal("an ordinary, malformed or still oversized request was changed")
+		}
+	}
+}

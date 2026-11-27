@@ -203,7 +203,12 @@ func (s *Server) codexBackend(w http.ResponseWriter, r *http.Request) {
 		// The namespace owns the route even if a model is not in the catalog.
 		// Unknown providers/groups must fail locally, never fall through to OpenAI.
 		if strings.Contains(model, "/") {
-			if most := s.bodyLimitOf(); int64(len(body)) > most {
+			most := s.bodyLimitOf()
+			native := s.nativeCompactionFor(model)
+			if int64(len(body)) > most && rest == "/responses" && strings.HasPrefix(model, "agy-cli/") && !native {
+				body = compactLargeAgyHistory(body, most)
+			}
+			if int64(len(body)) > most {
 				writeError(w, provider.Responses, http.StatusRequestEntityTooLarge, overLimit(most).Error()+
 					"; this limit is for a magpie model, and one of Codex's own models takes up to "+sizeWord(s.codexLimitOf()))
 				return
@@ -221,7 +226,6 @@ func (s *Server) codexBackend(w http.ResponseWriter, r *http.Request) {
 			// or group has, or is turned away (serve, sealedReader)
 			// a provider set to compact natively is asked Codex's own
 			// compaction, and its sealed item goes back as it came (#1099)
-			native := s.nativeCompactionFor(model)
 			body, compact := codexInputAs(body, true, native)
 			if compact {
 				// a compaction magpie makes goes on the model set for it
@@ -356,6 +360,75 @@ func (s *Server) codexBackend(w http.ResponseWriter, r *http.Request) {
 		defer hooked()
 	}
 	s.codexUpstream(w, r, rest, body)
+}
+
+// compactLargeAgyHistory prepares only a local summary request. Keep the
+// caller's transcript intact for ordinary turns and for native compaction.
+func compactLargeAgyHistory(body []byte, limit int64) []byte {
+	input := getIn(body, "input")
+	if !input.IsArray() || !anyInputItem(body, func(item []byte) bool {
+		return getIn(item, "type").String() == "compaction_trigger"
+	}) {
+		return body
+	}
+	const imageNote = `{"type":"input_text","text":"[Historical image omitted for compaction]"}`
+	type span struct {
+		start, end  int
+		replacement string
+	}
+	var edits []span
+	size := int64(len(body))
+	add := func(value gjson.Result, replacement string) {
+		end := value.Index + len(value.Raw)
+		if len(replacement) >= len(value.Raw) || !at(body, value) {
+			return
+		}
+		edits = append(edits, span{value.Index, end, replacement})
+		size -= int64(len(value.Raw) - len(replacement))
+	}
+	validItems := true
+	input.ForEach(func(_, item gjson.Result) bool {
+		if !item.IsObject() {
+			validItems = false
+			return false
+		}
+		field := "content"
+		switch item.Get("type").String() {
+		case "function_call_output", "custom_tool_call_output":
+			field = "output"
+		case "", "message":
+		default:
+			return true
+		}
+		v := item.Get(field)
+		if field == "output" && v.Type == gjson.String && len(v.Raw) > plainCompactMax {
+			text := v.String()
+			if len(text) > 4000 {
+				b, _ := json.Marshal(text[:2000] + "\n…\n" + text[len(text)-2000:])
+				add(v, string(b))
+			}
+		}
+		if v.IsArray() {
+			v.ForEach(func(_, part gjson.Result) bool {
+				if part.Get("type").String() == "input_image" && strings.HasPrefix(part.Get("image_url").Raw, `"data:image/`) {
+					add(part, imageNote)
+				}
+				return true
+			})
+		}
+		return true
+	})
+	if !validItems || size > limit || len(edits) == 0 {
+		return body
+	}
+	out := make([]byte, 0, size)
+	last := 0
+	for _, e := range edits {
+		out = append(out, body[last:e.start]...)
+		out = append(out, e.replacement...)
+		last = e.end
+	}
+	return append(out, body[last:]...)
 }
 
 // sealedTaskError is what a subagent is told whose task its lead sealed
