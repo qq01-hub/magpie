@@ -1,0 +1,715 @@
+{
+  "repository": "https://github.com/qq01-hub/magpie",
+  "combined_branch": "fix/unanswered-issues-20261127",
+  "combined_baseline": "5456743b731e1bc0d2c73b295d25cf70fb4e3c7e",
+  "production_code_head_tested": "537aac95a1b95a4dbe8f3e3dd6626034fca27d7a",
+  "individual_branch_baseline": "7281f97bed6d10f7160ed084fc4c98d316370cc5",
+  "individual_branches": [
+    {
+      "number": 7901,
+      "branch": "fix/7901-tolerant-model-modalities",
+      "head": "b1c99801ed7638c40c9e6baefbdbf1172e241362",
+      "commits": [
+        "b1c99801ed7638c40c9e6baefbdbf1172e241362 Q <3126197382@qq.com>",
+        "5e53678d893f2b77a3b8abdbed2a51041b5d03f0 FiendSaws <341297962+FiendSaws@users.noreply.github.com>"
+      ]
+    },
+    {
+      "number": 7958,
+      "branch": "fix/7958-codex-store-cli-version",
+      "head": "9f0ad522a2c38fbc270bdd9e31154ee7355b5443",
+      "commits": [
+        "9f0ad522a2c38fbc270bdd9e31154ee7355b5443 Q <3126197382@qq.com>"
+      ]
+    },
+    {
+      "number": 7952,
+      "branch": "fix/7952-skill-sync-installed-files",
+      "head": "a083953c88410c62d23cfec233c425634749aa01",
+      "commits": [
+        "a083953c88410c62d23cfec233c425634749aa01 Q <3126197382@qq.com>"
+      ]
+    },
+    {
+      "number": 7954,
+      "branch": "fix/7954-gemini-json-arrays",
+      "head": "55e7e4142c6213c6b97db26fd350f98c6fc9b5d4",
+      "commits": [
+        "55e7e4142c6213c6b97db26fd350f98c6fc9b5d4 wy.ones <wy.ones@proton.me>"
+      ]
+    },
+    {
+      "number": 7955,
+      "branch": "fix/7955-gemini-error-status",
+      "head": "ee055fbf982d37c805b2de90b7769135afecb6ed",
+      "commits": [
+        "ee055fbf982d37c805b2de90b7769135afecb6ed Q <3126197382@qq.com>",
+        "f8aa71561c0c1943a249f01027f486b39dcde55c wy.ones <wy.ones@proton.me>"
+      ]
+    },
+    {
+      "number": 7957,
+      "branch": "fix/7957-gemini-schema-properties",
+      "head": "3fc1ae43bb2071e2160f246b887967704414d0d7",
+      "commits": [
+        "3fc1ae43bb2071e2160f246b887967704414d0d7 Q <3126197382@qq.com>",
+        "8f9065c8754d154b410d259e558c5553ca7a67a8 wy.ones <wy.ones@proton.me>"
+      ]
+    },
+    {
+      "number": 7961,
+      "branch": "fix/7961-codex-other-input-items",
+      "head": "60549826713bd1a85a7899db04891c4765656f43",
+      "commits": [
+        "60549826713bd1a85a7899db04891c4765656f43 Q <3126197382@qq.com>"
+      ]
+    },
+    {
+      "number": 7842,
+      "branch": "fix/7842-stream-repeated-tool-header",
+      "head": "a12b82a321f781939a2c420b7e98599d9ecfc756",
+      "commits": [
+        "a12b82a321f781939a2c420b7e98599d9ecfc756 Q <3126197382@qq.com>",
+        "56f5c2870462cf512ba4b57ac567899be119ec93 saiswj <1414788+saiswj@users.noreply.github.com>"
+      ]
+    },
+    {
+      "number": 7843,
+      "branch": "fix/7843-custom-tool-numbers",
+      "head": "a23e093c8862c417f167e0558c5730b9301d4f27",
+      "commits": [
+        "a23e093c8862c417f167e0558c5730b9301d4f27 Q <3126197382@qq.com>",
+        "28660498ab3db2517a87651dfd08e550e238ddca saiswj <1414788+saiswj@users.noreply.github.com>"
+      ]
+    },
+    {
+      "number": 7945,
+      "branch": "fix/7945-serve-new-account-models",
+      "head": "12673f5dd98d166ce225a025a04a65346ef41e30",
+      "commits": [
+        "12673f5dd98d166ce225a025a04a65346ef41e30 Kangjia Gao <kkkzbh@gmail.com>"
+      ]
+    }
+  ],
+  "environment": {
+    "os": "windows",
+    "arch": "amd64",
+    "go": "1.26.8",
+    "bun": "1.4.5",
+    "cache_and_temp_root": "D:\\AI\\magpie-validation"
+  },
+  "final_focused_regressions": {
+    "status": "pass",
+    "top_level_tests": 29,
+    "test_and_subtest_events": {
+      "pass": 74,
+      "fail": 0,
+      "skip": 0
+    },
+    "log": "batch-new-regressions-final.jsonl",
+    "tests": [
+      {
+        "package": "github.com/yetone/magpie/internal/catalog",
+        "test": "TestFetchModalitiesShapes"
+      },
+      {
+        "package": "github.com/yetone/magpie/internal/catalog",
+        "test": "TestFetchNonObjectModalities"
+      },
+      {
+        "package": "github.com/yetone/magpie/internal/agent",
+        "test": "TestCodexStoreAppReadsTheConfig"
+      },
+      {
+        "package": "github.com/yetone/magpie/internal/agent",
+        "test": "TestCodexStoreAppWritesTheCompactionThreshold"
+      },
+      {
+        "package": "github.com/yetone/magpie/internal/gateway",
+        "test": "TestChatRepeatedToolHeaderAfterInterleavingKeepsCalls"
+      },
+      {
+        "package": "github.com/yetone/magpie/internal/gateway",
+        "test": "TestChatRepeatedToolHeaderContinuesTheCall"
+      },
+      {
+        "package": "github.com/yetone/magpie/internal/gateway",
+        "test": "TestChatRepeatedToolHeaderOnlyWhileTheCallIsOpen"
+      },
+      {
+        "package": "github.com/yetone/magpie/internal/gateway",
+        "test": "TestChatRepeatedToolHeaderToResponses"
+      },
+      {
+        "package": "github.com/yetone/magpie/internal/gateway",
+        "test": "TestCodexOtherItemsNotSentToVendors"
+      },
+      {
+        "package": "github.com/yetone/magpie/internal/gateway",
+        "test": "TestCopilotInputEnumRefusalIsNarrow"
+      },
+      {
+        "package": "github.com/yetone/magpie/internal/gateway",
+        "test": "TestCodexOtherHistoryReachesVendorOnFirstTry"
+      },
+      {
+        "package": "github.com/yetone/magpie/internal/gateway",
+        "test": "TestCodexCompactCopilotEnumAsksAgainAsText"
+      },
+      {
+        "package": "github.com/yetone/magpie/internal/gateway",
+        "test": "TestCustomToolNumbersReachResponses"
+      },
+      {
+        "package": "github.com/yetone/magpie/internal/gateway",
+        "test": "TestCustomToolCallKeepsItsNumbers"
+      },
+      {
+        "package": "github.com/yetone/magpie/internal/gateway",
+        "test": "TestWholeResultLeavesCustomToolsAsTheyCame"
+      },
+      {
+        "package": "github.com/yetone/magpie/internal/gateway",
+        "test": "TestGeminiErrorStatusNames"
+      },
+      {
+        "package": "github.com/yetone/magpie/internal/gateway",
+        "test": "TestGeminiStreamErrorKeepsItsStatus"
+      },
+      {
+        "package": "github.com/yetone/magpie/internal/gateway",
+        "test": "TestGeminiTranslatedStreamErrorKeepsItsStatus"
+      },
+      {
+        "package": "github.com/yetone/magpie/internal/gateway",
+        "test": "TestGeminiJSONToldOnce"
+      },
+      {
+        "package": "github.com/yetone/magpie/internal/gateway",
+        "test": "TestGeminiSchemaKeywordsNotPropertyNames"
+      },
+      {
+        "package": "github.com/yetone/magpie/internal/gateway",
+        "test": "TestGeminiSchemaLiteralValuesStayData"
+      },
+      {
+        "package": "github.com/yetone/magpie/internal/library",
+        "test": "TestCarryLeavesInstalledFilesLocal"
+      },
+      {
+        "package": "github.com/yetone/magpie/internal/library",
+        "test": "TestCarryInstalledFilesTakeNoBudget"
+      },
+      {
+        "package": "github.com/yetone/magpie/internal/provider",
+        "test": "TestKeepNewListedAfterAnEmptyStartup"
+      },
+      {
+        "package": "github.com/yetone/magpie/internal/provider",
+        "test": "TestKeepNewListedCancelsItsFetch"
+      },
+      {
+        "package": "github.com/yetone/magpie/internal/provider",
+        "test": "TestKeepNewListedStopsWhileAnotherFetchHoldsTheLock"
+      },
+      {
+        "package": "github.com/yetone/magpie/internal/provider",
+        "test": "TestFetchNewLeavesListedPlugins"
+      },
+      {
+        "package": "github.com/yetone/magpie/internal/library",
+        "test": "TestCarryOldMissingInstalledFilesStayLocal"
+      },
+      {
+        "package": "github.com/yetone/magpie/internal/library",
+        "test": "TestCarryPluginLeavesInstalledFilesLocal"
+      }
+    ],
+    "reproduce": "go test -tags nogui -count=1 -timeout 5m -json -run \"^(TestFetchModalitiesShapes|TestFetchNonObjectModalities|TestCodexStoreAppReadsTheConfig|TestCodexStoreAppWritesTheCompactionThreshold|TestChatRepeatedToolHeaderAfterInterleavingKeepsCalls|TestChatRepeatedToolHeaderContinuesTheCall|TestChatRepeatedToolHeaderOnlyWhileTheCallIsOpen|TestChatRepeatedToolHeaderToResponses|TestCodexOtherItemsNotSentToVendors|TestCopilotInputEnumRefusalIsNarrow|TestCodexOtherHistoryReachesVendorOnFirstTry|TestCodexCompactCopilotEnumAsksAgainAsText|TestCustomToolNumbersReachResponses|TestCustomToolCallKeepsItsNumbers|TestWholeResultLeavesCustomToolsAsTheyCame|TestGeminiErrorStatusNames|TestGeminiStreamErrorKeepsItsStatus|TestGeminiTranslatedStreamErrorKeepsItsStatus|TestGeminiJSONToldOnce|TestGeminiSchemaKeywordsNotPropertyNames|TestGeminiSchemaLiteralValuesStayData|TestCarryLeavesInstalledFilesLocal|TestCarryInstalledFilesTakeNoBudget|TestKeepNewListedAfterAnEmptyStartup|TestKeepNewListedCancelsItsFetch|TestKeepNewListedStopsWhileAnotherFetchHoldsTheLock|TestFetchNewLeavesListedPlugins|TestCarryOldMissingInstalledFilesStayLocal|TestCarryPluginLeavesInstalledFilesLocal)$\" ./internal/catalog ./internal/agent ./internal/library ./internal/gateway ./internal/provider"
+  },
+  "additional_checks": [
+    {
+      "check": "related gateway regressions",
+      "passed_events": 355,
+      "skipped_events": 1,
+      "log": "batch-gateway-targeted.log",
+      "followup": "The Bun-dependent skipped test passed with Bun present",
+      "followup_log": "batch-plugin-integer-green.log"
+    },
+    {
+      "check": "Windows vet",
+      "status": "pass",
+      "log": "batch-vet-windows-final.log"
+    },
+    {
+      "check": "Linux target vet",
+      "status": "pass",
+      "log": "batch-vet-linux-final.log"
+    },
+    {
+      "check": "Windows build including GUI",
+      "status": "pass",
+      "log": "batch-build-windows-final.log"
+    },
+    {
+      "check": "Linux cross build with nogui",
+      "status": "pass",
+      "log": "batch-build-linux-final.log"
+    },
+    {
+      "check": "#7961 regression race detector",
+      "status": "pass",
+      "log": "7961-race.log"
+    },
+    {
+      "check": "#7945 provider race detector count=20",
+      "status": "pass",
+      "log": "7945-provider-race.log"
+    },
+    {
+      "check": "#7945 real server race detector",
+      "status": "pass",
+      "log": "7945-gateway-race.log"
+    },
+    {
+      "check": "generated config loaded by installed Store Codex CLI 0.171.0-alpha.13.2",
+      "status": "pass",
+      "log": "7958-real-codex.log"
+    }
+  ],
+  "full_windows_suite": {
+    "status": "not_passing_and_incomplete",
+    "command": "go test -tags nogui -count=1 -timeout 45m -json ./...",
+    "stop_record": {
+      "Status": "stopped-incomplete",
+      "Reason": "Full-suite elapsed-time cap after existing Windows failures and stalled tests",
+      "StartedAt": "2026-11-27T17:51:22.7449640+08:00",
+      "StoppedAt": "2026-11-27T18:36:27.6448369+08:00",
+      "ElapsedSeconds": 2704.9,
+      "Pid": 62824,
+      "CommandLine": "\"D:\\AI\\magpie-validation\\toolchain\\go\\bin\\go.exe\" test -tags nogui -count=1 -timeout 45m -json ./..."
+    },
+    "test_and_subtest_events": {
+      "fail": 42,
+      "pass": 8459,
+      "skip": 521
+    },
+    "packages_total": 134,
+    "packages_with_final_result": 47,
+    "package_results": {
+      "pass": 36,
+      "fail": 6,
+      "skip_no_tests": 5
+    },
+    "packages_interrupted": 4,
+    "packages_not_started": 83,
+    "baseline_reproduced_failure_events": 40,
+    "unconfirmed_full_sequence_failure_events": 2,
+    "failure_events": [
+      {
+        "package": "github.com/yetone/magpie/build/darwin",
+        "test": "TestFreedHeapLeavesFootprint",
+        "baseline_failure_reproduced": true,
+        "baseline_logs": [
+          "baseline-other-confirm.log"
+        ],
+        "note": null
+      },
+      {
+        "package": "github.com/yetone/magpie/internal/appdir",
+        "test": "TestFoldersJoinedOnce",
+        "baseline_failure_reproduced": true,
+        "baseline_logs": [
+          "baseline-other-confirm.log"
+        ],
+        "note": null
+      },
+      {
+        "package": "github.com/yetone/magpie/internal/appdir",
+        "test": "TestLauncherNamesTheProfilesLink",
+        "baseline_failure_reproduced": true,
+        "baseline_logs": [
+          "baseline-other-confirm.log"
+        ],
+        "note": null
+      },
+      {
+        "package": "github.com/yetone/magpie/internal/browsermcp",
+        "test": "TestImageFromLeavesTheRest",
+        "baseline_failure_reproduced": true,
+        "baseline_logs": [
+          "baseline-other-confirm.log"
+        ],
+        "note": null
+      },
+      {
+        "package": "github.com/yetone/magpie/internal/catalog",
+        "test": "TestLivePathNamedOnce",
+        "baseline_failure_reproduced": true,
+        "baseline_logs": [
+          "baseline-other-confirm.log"
+        ],
+        "note": null
+      },
+      {
+        "package": "github.com/yetone/magpie/internal/agent",
+        "test": "TestAppliedOfParsesAnUnchangedFileOnce",
+        "baseline_failure_reproduced": true,
+        "baseline_logs": [
+          "baseline-agent-confirm.log"
+        ],
+        "note": null
+      },
+      {
+        "package": "github.com/yetone/magpie/internal/agent",
+        "test": "TestWorkBuddyRestartOnMac",
+        "baseline_failure_reproduced": true,
+        "baseline_logs": [
+          "baseline-agent-confirm.log"
+        ],
+        "note": null
+      },
+      {
+        "package": "github.com/yetone/magpie/internal/agent",
+        "test": "TestWorkBuddyOwnSaveAfterStartIsNoChange/darwin",
+        "baseline_failure_reproduced": true,
+        "baseline_logs": [
+          "baseline-agent-confirm.log"
+        ],
+        "note": null
+      },
+      {
+        "package": "github.com/yetone/magpie/internal/agent",
+        "test": "TestWorkBuddyOwnSaveAfterStartIsNoChange",
+        "baseline_failure_reproduced": true,
+        "baseline_logs": [
+          "baseline-agent-confirm.log"
+        ],
+        "note": null
+      },
+      {
+        "package": "github.com/yetone/magpie/internal/agent",
+        "test": "TestAsideOfflineDisconnectRestoresWithoutDaemon",
+        "baseline_failure_reproduced": true,
+        "baseline_logs": [
+          "baseline-agent-confirm.log"
+        ],
+        "note": null
+      },
+      {
+        "package": "github.com/yetone/magpie/internal/claudetui",
+        "test": "TestShimFirstMessageWaitsForTools",
+        "baseline_failure_reproduced": true,
+        "baseline_logs": [
+          "baseline-other-confirm.log"
+        ],
+        "note": null
+      },
+      {
+        "package": "github.com/yetone/magpie/internal/agent",
+        "test": "TestClaudeViaMagpieKept",
+        "baseline_failure_reproduced": true,
+        "baseline_logs": [
+          "baseline-agent-confirm.log"
+        ],
+        "note": null
+      },
+      {
+        "package": "github.com/yetone/magpie/internal/agent",
+        "test": "TestClaudeDesktopCarriesTheLanguage",
+        "baseline_failure_reproduced": true,
+        "baseline_logs": [
+          "baseline-agent-confirm.log"
+        ],
+        "note": null
+      },
+      {
+        "package": "github.com/yetone/magpie/internal/agent",
+        "test": "TestMiseShimWindowsFiveAgents",
+        "baseline_failure_reproduced": true,
+        "baseline_logs": [
+          "baseline-agent-confirm.log"
+        ],
+        "note": null
+      },
+      {
+        "package": "github.com/yetone/magpie/internal/agent",
+        "test": "TestHowInstalledWindowsShim",
+        "baseline_failure_reproduced": true,
+        "baseline_logs": [
+          "baseline-agent-confirm.log"
+        ],
+        "note": null
+      },
+      {
+        "package": "github.com/yetone/magpie/internal/agent",
+        "test": "TestCodexSyncDecodesTheConfigOnce",
+        "baseline_failure_reproduced": true,
+        "baseline_logs": [
+          "baseline-agent-confirm.log"
+        ],
+        "note": null
+      },
+      {
+        "package": "github.com/yetone/magpie/internal/agent",
+        "test": "TestCodexSignInInKeychain",
+        "baseline_failure_reproduced": true,
+        "baseline_logs": [
+          "baseline-agent-confirm.log"
+        ],
+        "note": null
+      },
+      {
+        "package": "github.com/yetone/magpie/internal/gateway",
+        "test": "TestClaudeAsRootEnv",
+        "baseline_failure_reproduced": true,
+        "baseline_logs": [
+          "baseline-other-confirm.log"
+        ],
+        "note": null
+      },
+      {
+        "package": "github.com/yetone/magpie/internal/agent",
+        "test": "TestCodexOwnModelsFollowPicks",
+        "baseline_failure_reproduced": true,
+        "baseline_logs": [
+          "baseline-agent-confirm.log"
+        ],
+        "note": null
+      },
+      {
+        "package": "github.com/yetone/magpie/internal/agent",
+        "test": "TestDesktopHandlerNeedsItsEntryAndProgram",
+        "baseline_failure_reproduced": true,
+        "baseline_logs": [
+          "baseline-other-confirm.log"
+        ],
+        "note": null
+      },
+      {
+        "package": "github.com/yetone/magpie/internal/agent",
+        "test": "TestGrokFoldsItsOwnAccount",
+        "baseline_failure_reproduced": true,
+        "baseline_logs": [
+          "baseline-agent-extra-confirm.log"
+        ],
+        "note": null
+      },
+      {
+        "package": "github.com/yetone/magpie/internal/agent",
+        "test": "TestHermesProfilesFollowMagpieModel",
+        "baseline_failure_reproduced": false,
+        "baseline_logs": [],
+        "note": "Passed in focused runs on both baseline and combined branch; failure in full sequence remains unconfirmed"
+      },
+      {
+        "package": "github.com/yetone/magpie/internal/agent",
+        "test": "TestHermesProfileModels",
+        "baseline_failure_reproduced": true,
+        "baseline_logs": [
+          "baseline-agent-extra-confirm.log"
+        ],
+        "note": null
+      },
+      {
+        "package": "github.com/yetone/magpie/internal/agent",
+        "test": "TestHermesProfilesAreAgents",
+        "baseline_failure_reproduced": true,
+        "baseline_logs": [
+          "baseline-agent-extra-confirm.log"
+        ],
+        "note": null
+      },
+      {
+        "package": "github.com/yetone/magpie/internal/agent",
+        "test": "TestHermesProfileRowsReadAsNames",
+        "baseline_failure_reproduced": true,
+        "baseline_logs": [
+          "baseline-agent-extra-confirm.log"
+        ],
+        "note": null
+      },
+      {
+        "package": "github.com/yetone/magpie/internal/agent",
+        "test": "TestHermesProfilesAreNotListedAsAgents",
+        "baseline_failure_reproduced": false,
+        "baseline_logs": [],
+        "note": "Passed in focused runs on both baseline and combined branch; failure in full sequence remains unconfirmed"
+      },
+      {
+        "package": "github.com/yetone/magpie/internal/agent",
+        "test": "TestCopilotFolderFromAnIDEPluginIsNotTheCLI",
+        "baseline_failure_reproduced": true,
+        "baseline_logs": [
+          "baseline-agent-extra-confirm.log"
+        ],
+        "note": null
+      },
+      {
+        "package": "github.com/yetone/magpie/internal/agent",
+        "test": "TestQoderSettingsFromAnIDEPluginIsNotTheCLI/qoder-cn",
+        "baseline_failure_reproduced": true,
+        "baseline_logs": [
+          "baseline-agent-extra-confirm.log"
+        ],
+        "note": null
+      },
+      {
+        "package": "github.com/yetone/magpie/internal/agent",
+        "test": "TestQoderSettingsFromAnIDEPluginIsNotTheCLI/qoder",
+        "baseline_failure_reproduced": true,
+        "baseline_logs": [
+          "baseline-agent-extra-confirm.log"
+        ],
+        "note": null
+      },
+      {
+        "package": "github.com/yetone/magpie/internal/agent",
+        "test": "TestQoderSettingsFromAnIDEPluginIsNotTheCLI",
+        "baseline_failure_reproduced": true,
+        "baseline_logs": [
+          "baseline-agent-extra-confirm.log"
+        ],
+        "note": null
+      },
+      {
+        "package": "github.com/yetone/magpie/internal/agent",
+        "test": "TestInstallWithoutNodeParses",
+        "baseline_failure_reproduced": true,
+        "baseline_logs": [
+          "baseline-agent-extra-confirm.log"
+        ],
+        "note": null
+      },
+      {
+        "package": "github.com/yetone/magpie/internal/agent",
+        "test": "TestIsMagpieKeptWhileCatalogStays",
+        "baseline_failure_reproduced": true,
+        "baseline_logs": [
+          "baseline-agent-extra-confirm.log"
+        ],
+        "note": null
+      },
+      {
+        "package": "github.com/yetone/magpie/internal/agent",
+        "test": "TestOpenLodyRunsItsDesktopEntry",
+        "baseline_failure_reproduced": true,
+        "baseline_logs": [
+          "baseline-tail-confirm.log"
+        ],
+        "note": null
+      },
+      {
+        "package": "github.com/yetone/magpie/internal/agent",
+        "test": "TestDesktopExec",
+        "baseline_failure_reproduced": true,
+        "baseline_logs": [
+          "baseline-tail-confirm.log"
+        ],
+        "note": null
+      },
+      {
+        "package": "github.com/yetone/magpie/internal/agent",
+        "test": "TestMagpieModelsKeptWhileCatalogStays",
+        "baseline_failure_reproduced": true,
+        "baseline_logs": [
+          "baseline-tail-confirm.log"
+        ],
+        "note": null
+      },
+      {
+        "package": "github.com/yetone/magpie/internal/agent",
+        "test": "TestViaMagpieKeptWhileCatalogStays",
+        "baseline_failure_reproduced": true,
+        "baseline_logs": [
+          "baseline-tail-confirm.log"
+        ],
+        "note": null
+      },
+      {
+        "package": "github.com/yetone/magpie/internal/gateway",
+        "test": "TestHandedOverGatewayFinishesItsStream",
+        "baseline_failure_reproduced": true,
+        "baseline_logs": [
+          "baseline-tail-confirm.log"
+        ],
+        "note": null
+      },
+      {
+        "package": "github.com/yetone/magpie/internal/agent",
+        "test": "TestOpenMausBotRestartOnMac",
+        "baseline_failure_reproduced": true,
+        "baseline_logs": [
+          "baseline-tail-confirm.log"
+        ],
+        "note": null
+      },
+      {
+        "package": "github.com/yetone/magpie/internal/davsync",
+        "test": "TestSyncSkillsBySourceAndLeftOut",
+        "baseline_failure_reproduced": true,
+        "baseline_logs": [
+          "baseline-sync-source-confirm.log"
+        ],
+        "note": null
+      },
+      {
+        "package": "github.com/yetone/magpie/internal/agent",
+        "test": "TestOwnModelsSayTheyGoDirect",
+        "baseline_failure_reproduced": true,
+        "baseline_logs": [
+          "baseline-tail-confirm.log"
+        ],
+        "note": null
+      },
+      {
+        "package": "github.com/yetone/magpie/internal/agent",
+        "test": "TestOwnOptionsKept",
+        "baseline_failure_reproduced": true,
+        "baseline_logs": [
+          "baseline-tail-confirm.log"
+        ],
+        "note": null
+      },
+      {
+        "package": "github.com/yetone/magpie/internal/agent",
+        "test": "TestPenguinUpdate",
+        "baseline_failure_reproduced": true,
+        "baseline_logs": [
+          "baseline-tail-confirm.log"
+        ],
+        "note": null
+      }
+    ],
+    "unfinished_top_level_tests": [
+      {
+        "package": "github.com/yetone/magpie/internal/gateway",
+        "test": "TestHandedOffGatewayTakesNoNewConnection",
+        "started_at": "2026-11-27T18:26:57.1089754+08:00"
+      },
+      {
+        "package": "github.com/yetone/magpie/internal/agent",
+        "test": "TestPiEnabledModelsLoseDeselected",
+        "started_at": "2026-11-27T18:36:06.6470237+08:00"
+      },
+      {
+        "package": "github.com/yetone/magpie/internal/gui",
+        "test": "TestDesktopSubagentModelNotice",
+        "started_at": "2026-11-27T18:36:10.9183253+08:00"
+      },
+      {
+        "package": "github.com/yetone/magpie/internal/cli",
+        "test": "TestGroupRuleCmd",
+        "started_at": "2026-11-27T18:36:13.7849204+08:00"
+      }
+    ],
+    "raw_log": "batch-full-windows.jsonl"
+  },
+  "limits": [
+    "The full suite did not pass or complete",
+    "Linux was compiled and vetted from Windows, not executed; macOS was not available",
+    "Provider protocol tests use local fixtures and upstream servers, not paid production requests",
+    "Skill sync tests exercise collection, sharing and installation, not a live WebDAV service",
+    "No GUI assets changed; browser UI suites were not run"
+  ]
+}
