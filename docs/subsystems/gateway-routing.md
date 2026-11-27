@@ -340,12 +340,24 @@ Gemini request schemas translated to another protocol (`jsonSchema` in
 `properties`, `patternProperties`, `$defs` and `definitions` as names, so
 a property called `type`, `example` or `nullable` keeps its schema
 Schema types are lowercased and `nullable: true` becomes a `null` type
-alongside a scalar type, or a null branch of an untyped `anyOf`
+alongside its single named type, or a null branch of an untyped `anyOf`
 The JSON data in `default`, `const`, `enum` and `examples` stays unchanged,
 including nested objects whose keys look like schema keywords
 `TestGeminiSchemaKeywordsNotPropertyNames` exercises the translated
 function and structured-output schemas through the gateway;
 `TestGeminiSchemaLiteralValuesStayData` guards those literal values
+
+- A translated Chat stream that repeats the open tool call's nonempty id
+  and name at another index continues that call while its arguments are
+  still incomplete and no other call is held (#7842). `chatDecoder.toolCall`
+  follows the new index and sends its arguments as they arrive, so a
+  Responses client keeps one item whose input does not stall. A different
+  id or name, a complete first call, or an already held call keeps the
+  existing separate-call handling. The diagnostic names no call or input.
+  `TestChatRepeatedToolHeaderContinuesTheCall`,
+  `TestChatRepeatedToolHeaderOnlyWhileTheCallIsOpen` and
+  `TestChatRepeatedToolHeaderToResponses` cover the continuation and its
+  boundaries.
 
 - A fallback happens only while none of the reply has been sent. An agent never gets half a reply from one upstream and the rest from another.
 - A Remote magpie on a network this computer isn't on now is passed over (AlanWang1027713 on X: Wi-Fi A on 192.168.51.x, Wi-Fi B on 192.168.31.x, a magpie on a computer in each, both in one group; on A the group still sent requests to B's, each try waiting out the 5s private-address dial cap and `SeekMoved`'s look, then resting B a minute and more, and back on B the other way round). A Remote magpie at a private or link-local IP or a `.local` name, with no proxy or `Resolve` of its own (`reachAddr` in [`lan_reach.go`](../../internal/gateway/lan_reach.go)), is dialled once per set of networks this computer has addresses on (`netPrint`, read at most once a second), for 1.5s at most (`reachWait`); in the try loop, one that took no connection is skipped, before anything is sent, while a candidate is left after it (`lanUnreachable`), the request log's fallback saying "not reachable from the network this computer is on now". The verdict is checked again behind the requests once it is 30s old (`reachFresh`), at once when the networks change, and set by every real try: one that answered, one whose connection was never made (`noteReach` in `forward`). A connection never made to such a member rests nothing and counts no failure (`lanUnreached`, in the try loop and `restAfterMarked`), so it is asked again the moment it can be reached. The routing's order is kept: nothing is reordered, the last candidate is always asked (so a request that reaches no one gets the real error, and `SeekMoved` still runs), and one passed over at an address on one of this computer's own networks is looked for in the background (`SeekMoved`, once a minute at most), so a moved computer is still found while a sibling answers. A cloud provider, a hand-added OpenAI-compatible LAN server, a public address, a name other than `.local`, Tailscale's 100.64/10, loopback and a Remote magpie with other addresses (its first may take no connection while another does: `Addresses`, see providers and accounts) are never judged (`TestGroupPassesOverRemoteMagpieOnAnotherNetwork`, `TestRemoteMagpieConnectFailureIsNotRested`, `TestReachJudgesRemoteMagpiesOnPrivateNetworksAlone`, `TestRemoteMagpieAskedAtItsOtherAddress`). A Remote magpie reached across networks that do route to each other (one router behind another) takes the connection and is asked as its place says.
