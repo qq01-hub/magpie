@@ -283,6 +283,11 @@ type Request struct {
 	// draws asks the model for images beside text: a drawing asked on
 	// Gemini's API of a model not named for images (drawCodeAssist).
 	draws bool
+	// hideThoughts marks a Gemini client that didn't ask includeThoughts:
+	// its whole reply goes without thought parts, as Google's does
+	// (render). A stream still carries them: the loop guard reads a
+	// stream as the client is sent it, and would miss a loop it isn't sent.
+	hideThoughts bool
 
 	// strictSaid has a Chat request's tools say strict as each is set,
 	// false included, as OpenCode's own do: Zen's free tier

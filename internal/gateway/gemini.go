@@ -274,7 +274,7 @@ func parseGemini(body []byte) (*Request, error) {
 	if err := json.Unmarshal(body, &g); err != nil {
 		return nil, fmt.Errorf("invalid request: %v", err)
 	}
-	r := &Request{Model: g.Model, Stream: g.Stream}
+	r := &Request{Model: g.Model, Stream: g.Stream, hideThoughts: true}
 	r.System = geminiText(g.SystemInstruction)
 	if r.System != "" {
 		r.systemParts = []string{r.System}
@@ -284,6 +284,7 @@ func parseGemini(body []byte) (*Request, error) {
 		if tc := gc.ThinkingConfig; tc != nil {
 			r.Effort = tc.effort()
 			r.Thinking = r.Effort != ""
+			r.hideThoughts = !tc.IncludeThoughts
 		}
 		// the size and shape of the image asked for, which only an
 		// upstream that speaks Gemini takes (#3820)

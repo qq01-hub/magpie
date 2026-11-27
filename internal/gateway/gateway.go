@@ -11034,6 +11034,9 @@ func render(proto provider.Protocol, res Result, r *Request) []byte {
 	case provider.Responses:
 		return renderResponses(res, model, r.Namespaced)
 	case provider.Gemini:
+		if r.hideThoughts {
+			res.Parts = slices.DeleteFunc(slices.Clone(res.Parts), func(p Part) bool { return p.Kind == Thinking })
+		}
 		return renderGemini(res, model)
 	}
 	return renderAnthropic(res, model)
