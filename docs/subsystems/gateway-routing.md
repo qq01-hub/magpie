@@ -11,6 +11,18 @@ This page covers how a request is routed. Plugins that change requests and
 replies are in [Gateway middleware](gateway-middleware.md). Subscriptions
 served by a plugin are in [Provider and plugin ownership](provider-plugins.md).
 
+Codex history can contain `{"type":"other"}` for an item its reader no
+longer knows (#7961). `forVendor` leaves these placeholders out of normal
+Responses turns and summary requests sent to non-OpenAI providers, while
+keeping messages, calls and their order. OpenAI's API and Codex accounts
+still receive the original history. A Copilot-style input-item enum refusal
+(`Invalid value: '…'. Supported values are: … 'message' …`) is also an
+`inputKindRefused` response, so compaction can retry with the conversation
+as text. The match requires `message` inside the listed enum values, and
+does not turn an effort refusal or an account's 401, 403 or 429 into a
+compaction fallback. `codex_other_input_test.go` checks the first forwarded
+request, the summary retry, and these boundaries.
+
 WorkBuddy and CodeBuddy Code's `X-Conversation-ID` is a native session header
 in `sessionHeaders` (`sessionOf`, `nativeSessionOf`, `conversationID` in
 [`gateway.go`](../../internal/gateway/gateway.go)). It keeps their requests
