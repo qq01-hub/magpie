@@ -276,6 +276,12 @@ type Request struct {
 	// video (videoInput): a video of an earlier turn is told of in words
 	// (attachmentText) where it would go as a video block (video_input.go)
 	videoOff bool
+	// audioOn is set on a request built for a plugin's model known to
+	// take audio (takesAudio): a sound given inline goes to it as an audio
+	// block on Messages. Anthropic's own API has none, and a vendor or
+	// relay speaking Messages may turn one away, so to any other it is
+	// told of in words.
+	audioOn bool
 	// signer, on a request built for chat completions, is the provider
 	// it goes to: a tool call's Gemini signature that provider gave goes
 	// back to it in extra_content, whatever its host (buildChat)

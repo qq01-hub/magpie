@@ -2959,12 +2959,26 @@ turn to such a model is told of in words (`Request.videoOff`, set in
 members' kinds (`unionKinds` in `buildGroupEntries`, so `/v1/models` lists
 `video` for a group with a member that takes it, #2898), and a video goes
 only to the members that take one, else those nothing is known of, else a
-400 naming the group. Audio (`input_audio`, #4101) and PDFs (#5452) are not
-handled here.
+400 naming the group. PDFs (#5452) are not handled here.
+
+A sound (`isAudio`: a `File` part of `audio/*`, Gemini's `inlineData` or
+Chat's `input_audio`) goes to a plugin's Messages model as an `audio`
+block, the video block's shape under its own type, only when the plugin's
+model is one its source says takes `audio` (`takesAudio`; `Request.audioOn`,
+set in `buildFor` for a plugin's provider) and the sound is the user's,
+given inline: agy-cli's plugin (its `gemini-*`) reads it, and turns away
+one by its address or in the model's turn. Anthropic's own API has no
+audio block, and a vendor or relay that speaks Messages may turn one away,
+so to every other model, a provider's whatever its list or models.dev
+says, it is told of in words (`attachmentText`), as before, and so is a
+sound given by its address or in the model's turn. A
+routing group doesn't route by it: each member it tries is given the sound
+as that member takes it, and none is passed over or turned away for it.
 
 Covered by `TestPluginGetsTheVideoBlock` (the reporter's body to a plugin),
 `TestVideoReachesEveryAPI`, `TestVideoForAModelThatTakesNone`,
-`TestGroupVideoGoesToMembersThatTakeIt` and `TestGroupInputsAreItsMembers`.
+`TestGroupVideoGoesToMembersThatTakeIt`, `TestGroupInputsAreItsMembers` and
+`TestAudioReachesAPluginModelThatTakesIt`.
 
 ## An image the describer can't describe
 
