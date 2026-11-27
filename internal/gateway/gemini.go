@@ -649,6 +649,9 @@ func jsonSchema(raw json.RawMessage) json.RawMessage {
 						out[k] = val
 					}
 				case "nullable", "propertyOrdering", "example":
+				case "default", "const", "enum", "examples":
+					// These hold JSON data, whose keys are never keywords
+					out[k] = val
 				case "properties", "patternProperties", "$defs", "definitions":
 					named, ok := val.(map[string]any)
 					if !ok {
