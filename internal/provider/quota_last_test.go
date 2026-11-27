@@ -57,3 +57,34 @@ func TestKeepLast(t *testing.T) {
 		t.Fatalf("reset: %+v", q)
 	}
 }
+
+func TestKeepLastClinePluginErrorPreservesWindows(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	lastQuotas.Lock()
+	lastQuotas.m, lastQuotas.loaded = nil, false
+	lastQuotas.Unlock()
+	defer func() {
+		lastQuotas.Lock()
+		lastQuotas.m, lastQuotas.loaded = nil, false
+		lastQuotas.Unlock()
+	}()
+	reset := time.Now().Add(time.Hour)
+	good := SubscriptionQuota{Provider: "cline-plugin", User: "u", Windows: clinePassOnly([]QuotaWindow{{Name: "Weekly", Used: 80, ResetsAt: &reset}})}
+	keepLast(good, "")
+	lastQuotas.Lock()
+	lastQuotas.m, lastQuotas.loaded = nil, false
+	lastQuotas.Unlock()
+	q := keepLast(SubscriptionQuota{Provider: "cline-plugin", User: "u", Error: "ClinePass limits couldn't be read: HTTP 502"}, "")
+	if q.Error != "" || len(q.Windows) != 1 || q.Windows[0].Used != 80 || q.Windows[0].Model != clinePassPrefix {
+		t.Fatalf("plugin error dropped the last good windows: %+v", q)
+	}
+	if used, _ := allowanceOf(q.Windows, time.Now()).For("cline-pass/mythomax-l2-13b", time.Now()); used != 80 {
+		t.Fatalf("kept ClinePass window didn't count ClinePass model: %v", used)
+	}
+	if used, _ := allowanceOf(q.Windows, time.Now()).For("cline-free/deepseek-v4.1-flash", time.Now()); used != 0 {
+		t.Fatalf("kept ClinePass window counts free model: %v", used)
+	}
+	if used, _ := allowanceOf(q.Windows, reset.Add(time.Minute)).For("cline-pass/mythomax-l2-13b", reset.Add(time.Minute)); used != 0 {
+		t.Fatalf("kept ClinePass window didn't reset after ResetsAt: %v", used)
+	}
+}

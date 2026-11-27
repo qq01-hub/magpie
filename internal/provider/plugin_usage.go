@@ -82,7 +82,9 @@ func pluginUsageLogins(pp plugin.Provider) []Login {
 var signInGone = lazyre.New(`(?i)sign-in has (expired|lapsed)|sign in again`)
 
 // pluginLoginQuota is the allowance of one of a plugin provider's
-// accounts, l.Agent being "plugin:" and its id.
+// accounts, l.Agent being "plugin:" and its id. Cline's plugin reports
+// ClinePass limits without model lists, so those windows are scoped here
+// before they reach routing.
 func pluginLoginQuota(ctx context.Context, l Login) SubscriptionQuota {
 	pp, ok := pluginOfAgent(l.Agent)
 	name, icon := pluginCard(pp)
@@ -126,7 +128,18 @@ func pluginLoginQuota(ctx context.Context, l Login) SubscriptionQuota {
 	}
 	keepPluginPlan(pp, key, u.Plan)
 	// a wallet's spend counted, for a cap to hold it (#5770)
-	return withWalletSpend(namedModelWindows(quotaOfPlugin(q, u), pp.Models), l.User, time.Now())
+	q = namedModelWindows(quotaOfPlugin(q, u), pp.Models)
+	q = scopePluginWindows(pp.ID, q)
+	return withWalletSpend(q, l.User, time.Now())
+}
+
+// scopePluginWindows applies provider-specific model scoping to windows
+// reported by a plugin without explicit model filters.
+func scopePluginWindows(providerID string, q SubscriptionQuota) SubscriptionQuota {
+	if providerID == "cline" {
+		q.Windows = clinePassOnly(q.Windows)
+	}
+	return q
 }
 
 // namedModelWindows scopes each window that says no models but is named

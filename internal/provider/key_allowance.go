@@ -386,23 +386,17 @@ func (p Provider) paidOnly(ws []QuotaWindow) []QuotaWindow {
 // only the plan's models (cline-pass/…): Cline serves its free models
 // apart from the plan's quota ("separate from ClinePass quota", its
 // recommended-models feed) and its other models from the account's
-// credits, so a week used up holds neither. A window still counts model
-// "", the key.
+// credits, so a week used up holds neither.
 func clinePassOnly(ws []QuotaWindow) []QuotaWindow {
 	out := slices.Clone(ws)
 	for i, w := range out {
 		if w.Model == "" && w.Family == "" && w.matches == nil {
-			out[i].matches = clinePassModel
+			// Keep the scope in the persisted window too. A model prefix is
+			// serializable by keepLast, unlike a function matcher.
+			out[i].Model = clinePassPrefix
 		}
 	}
 	return out
-}
-
-// clinePassModel says model, as routing asks for it, draws on ClinePass's
-// limits: one of the plan's, or "" for the key itself.
-func clinePassModel(model string) bool {
-	m := strings.ToLower(strings.TrimSpace(model))
-	return m == "" || strings.HasPrefix(m, clinePassPrefix) || strings.Contains(m, "/"+clinePassPrefix)
 }
 
 // lastKeyAllowance is p's key's windows as its card last read them, kept
