@@ -272,7 +272,12 @@ func readBoundedRequestBody(w http.ResponseWriter, r *http.Request, limits reque
 	}
 	defer rd.Close()
 	// Limit decoded bytes as well.
-	body, err := readSized(io.LimitReader(rd, limits.body+1), declared)
+	var body []byte
+	if b, ok := original.(socketPostBody); ok && declared >= 0 {
+		body = b.Next(b.Len())
+	} else {
+		body, err = readSized(io.LimitReader(rd, limits.body+1), declared)
+	}
 	if int64(len(body)) > limits.body {
 		return reject(http.StatusRequestEntityTooLarge, overLimit(limits.body))
 	}

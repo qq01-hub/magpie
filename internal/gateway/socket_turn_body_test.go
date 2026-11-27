@@ -2,7 +2,11 @@ package gateway
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
+	"io"
+	"net/http"
+	"net/http/httptest"
 	"strconv"
 	"strings"
 	"testing"
@@ -78,4 +82,37 @@ func TestTurnBodyWrittenOnce(t *testing.T) {
 		t.Errorf("a %d-byte turn allocated %d bytes (%.1f×)", size, got, float64(got)/float64(size))
 	}
 	t.Logf("body %d: turnBody %d, json.Marshal %d", size, got, allocatedEach(func() { oldTurnBody(q, input) }))
+}
+
+// A socket already owns the POST bytes. Hand them to the HTTP handler once,
+// leave Body consumed and keep GetBody available for an independent retry.
+func TestSocketPostReusesTurnBody(t *testing.T) {
+	body := []byte(`{"input":"` + strings.Repeat("x", promptBodyMax) + `"}`)
+	rs := responsesSocket{o: &socketOrigin{req: httptest.NewRequest(http.MethodGet, "/v1/responses", nil)}}
+	req := rs.request(context.Background(), body)
+	w, req, unwatch := (&Server{}).watchUnrouted(httptest.NewRecorder(), req, &inflight{})
+	defer unwatch()
+	got, _, err := readBoundedRequestBody(w, req, requestLimits{body: int64(len(body))})
+	if err != nil || !bytes.Equal(got, body) {
+		t.Fatalf("turn bytes changed: %v", err)
+	}
+	if &got[0] != &body[0] {
+		t.Errorf("HTTP reader copied the %d-byte socket turn", len(body))
+	}
+	if n, err := req.Body.Read(make([]byte, 1)); n != 0 || err != io.EOF {
+		t.Fatalf("body after read: %d, %v", n, err)
+	}
+	again, err := req.GetBody()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer again.Close()
+	replay, err := io.ReadAll(again)
+	if err != nil || !bytes.Equal(replay, body) {
+		t.Fatalf("retry body changed: %v", err)
+	}
+	req = rs.request(context.Background(), body)
+	if _, status, _ := readBoundedRequestBody(httptest.NewRecorder(), req, requestLimits{body: int64(len(body) - 1)}); status != http.StatusRequestEntityTooLarge {
+		t.Fatalf("oversized turn: status %d", status)
+	}
 }

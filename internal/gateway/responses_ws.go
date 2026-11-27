@@ -610,6 +610,11 @@ func escapedSize(raw []byte) int {
 	return len(raw) + 5*(bytes.Count(raw, []byte("<"))+bytes.Count(raw, []byte(">"))+bytes.Count(raw, []byte("&")))
 }
 
+// socketPostBody owns the serialized turn. GetBody reads the same immutable bytes with an independent cursor.
+type socketPostBody struct{ *bytes.Buffer }
+
+func (socketPostBody) Close() error { return nil }
+
 // request is the POST a turn stands for: the upgrade's own request, its
 // URL, Host, address and headers, with the turn as its body.
 func (rs *responsesSocket) request(ctx context.Context, body []byte) *http.Request {
@@ -653,7 +658,13 @@ func (rs *responsesSocket) request(ctx context.Context, body []byte) *http.Reque
 	if strings.EqualFold(gjson.GetBytes(body, `client_metadata.ws_request_header_x_openai_internal_codex_responses_lite`).String(), "true") {
 		req.Header.Set("X-OpenAI-Internal-Codex-Responses-Lite", "true")
 	}
-	req.Body = io.NopCloser(bytes.NewReader(body))
+	// A small turn may be retained for the prompt card. Give that cache
+	// its own HTTP body so it cannot pin the socket's backing array.
+	if len(body) > promptBodyMax {
+		req.Body = socketPostBody{bytes.NewBuffer(body[:len(body):len(body)])}
+	} else {
+		req.Body = io.NopCloser(bytes.NewReader(body))
+	}
 	req.GetBody = func() (io.ReadCloser, error) { return io.NopCloser(bytes.NewReader(body)), nil }
 	req.ContentLength = int64(len(body))
 	req.Header.Set("Content-Length", strconv.Itoa(len(body)))
