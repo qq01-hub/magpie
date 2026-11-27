@@ -774,7 +774,7 @@ func (g googleAccount) needsProject(why string) error {
 	if g.own {
 		msg += " or GOOGLE_CLOUD_PROJECT in ~/.gemini/.env"
 	}
-	msg += ". A personal Google account is served to Antigravity instead: add it under Antigravity in magpie"
+	msg += ". A personal Google account is served to Antigravity instead: install its plugin with `magpie plugin add @magpie-community/opencode-agy-cli-auth`, then sign in with `magpie accounts add antigravity`"
 	if why != "" {
 		msg = why + " — " + msg
 	}

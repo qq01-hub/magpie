@@ -15,6 +15,7 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/yetone/magpie/internal/agent"
+	"github.com/yetone/magpie/internal/plugin"
 	"github.com/yetone/magpie/internal/proc"
 	"github.com/yetone/magpie/internal/provider"
 	"github.com/yetone/magpie/internal/settings"
@@ -459,9 +460,37 @@ func untilShort(d time.Duration) string {
 	return fmt.Sprintf("%dd%dh", int(d.Hours())/24, int(d.Hours())%24)
 }
 
+// antigravityPlugin finds the installed plugin that provides Antigravity's
+// sign-in. The old antigravity provider is accepted for users who still have
+// that withdrawn plugin, while new sign-ins use agy-cli.
+func antigravityPlugin() (plugin.Provider, error) {
+	return findAntigravityPlugin(listPluginProviders())
+}
+
+func findAntigravityPlugin(providers []plugin.Provider) (plugin.Provider, error) {
+	for _, pp := range providers {
+		if pp.ID == "agy-cli" || pp.ID == "antigravity" {
+			return pp, nil
+		}
+	}
+	return plugin.Provider{}, fmt.Errorf("Antigravity sign-in is provided by the agy-cli plugin; add it with `magpie plugin add @magpie-community/opencode-agy-cli-auth`, then sign in with `magpie plugin login agy-cli`")
+}
+
+// listPluginProviders and loginPlugin are seams for account-add tests. The
+// normal path reads the cached plugin listing and performs the real sign-in.
+var listPluginProviders = plugin.Cached
+var loginPlugin = pluginLogin
+
 // addAccount signs in to one more subscription in the browser, the way the
 // window's "Add account" does.
 func addAccount(agentID string) error {
+	if agentID == "antigravity" {
+		pp, err := antigravityPlugin()
+		if err != nil {
+			return err
+		}
+		return loginPlugin(context.Background(), pp.ID, "")
+	}
 	if risk := map[string]string{"antigravity": provider.AntigravityRisk, "claude": provider.ClaudeRisk,
 		"workbuddy": provider.WorkBuddyRisk, "workbuddy-ai": provider.WorkBuddyRisk}[agentID]; risk != "" {
 		fmt.Println(bold.Render("!"), risk)
@@ -473,7 +502,7 @@ func addAccount(agentID string) error {
 		}
 	}
 	if _, plug := provider.PluginOf(agentID); plug || provider.PluginServes(agentID) {
-		return pluginLogin(context.Background(), agentID, "")
+		return loginPlugin(context.Background(), agentID, "")
 	}
 	if p, _ := claudeCode.downloaded(); agentID == "claude" && runtime.GOOS != "windows" && claudeCode.own() == "" && p == "" {
 		// a server or container: the sign-in runs Claude Code, which it

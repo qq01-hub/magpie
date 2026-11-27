@@ -207,7 +207,8 @@ func TestGeminiNeedsAProject(t *testing.T) {
 	_, err := g.project(context.Background())
 	if err == nil || !strings.Contains(err.Error(), "magpie accounts project gemini me@example.com") ||
 		!strings.Contains(err.Error(), "no longer supported") || !strings.Contains(err.Error(), "~/.gemini/.env") ||
-		!strings.Contains(err.Error(), "add it under Antigravity in magpie") {
+		!strings.Contains(err.Error(), "magpie plugin add @magpie-community/opencode-agy-cli-auth") ||
+		!strings.Contains(err.Error(), "magpie accounts add antigravity") {
 		t.Fatalf("err = %v", err)
 	}
 	if len(f.onboards) != 0 {
