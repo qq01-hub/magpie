@@ -10770,11 +10770,16 @@ func buildFor(p provider.Provider, proto provider.Protocol, r *Request, model st
 		c.instructionsKept = true
 		r = &c
 	}
-	if !r.videoOff && anyVideo(r) && noVideo(p.ID, model) {
+	if !r.videoOff && anyPart(r, isVideo) && noVideo(p.ID, model) {
 		// a video of an earlier turn, to a model that takes none, is told
 		// of in words (#6135)
 		c := *r
 		c.videoOff = true
+		r = &c
+	}
+	if proto == provider.Anthropic && p.IsPlugin() && anyPart(r, isAudio) && takesAudio(p.ID, model) {
+		c := *r
+		c.audioOn = true
 		r = &c
 	}
 	if proto == provider.Chat && r.signer != p.ID {

@@ -1049,6 +1049,15 @@ func anthropicBody(r *Request, model, host string, replay bool) []byte {
 					rest = append(rest, b)
 					break
 				}
+				if isAudio(p) && p.Data != "" && r.audioOn && m.Role == "user" {
+					// the video block's shape under its own type, the
+					// user's and inline: agy-cli's plugin takes no sound
+					// by its address, nor one in the model's turn
+					b := imageBlock(p)
+					b.Type, b.CacheControl = "audio", partMark(p.cache)
+					rest = append(rest, b)
+					break
+				}
 				if p.MediaType == "application/pdf" && p.Data != "" {
 					// the file itself, in Messages' own tongue (#5452): a
 					// base64 document takes a PDF only, so any other file

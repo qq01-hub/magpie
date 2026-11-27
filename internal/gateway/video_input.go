@@ -32,6 +32,23 @@ func isVideo(p Part) bool {
 	return p.Kind == File && strings.HasPrefix(strings.ToLower(p.MediaType), "video/")
 }
 
+// isAudio is whether p is a sound the client gave.
+func isAudio(p Part) bool {
+	return p.Kind == File && strings.HasPrefix(strings.ToLower(p.MediaType), "audio/")
+}
+
+// takesAudio is whether the model p serves as model is one its source
+// says takes audio (Entry.Inputs, as videoInput reads it): only such a
+// model is sent a sound as itself (Request.audioOn).
+func takesAudio(id, model string) bool {
+	for _, e := range provider.Served() {
+		if e.Group == "" && e.Provider.ID == id && e.Model == model {
+			return slices.Contains(e.Inputs, "audio")
+		}
+	}
+	return false
+}
+
 // videoPart is a video by its data: URL, bare base64 or address, with the
 // media type the client named, else the one its data: URL or its name's
 // extension says, else video/mp4; false for one with nothing in it.
@@ -157,10 +174,11 @@ func videoFileType(src, name string) string {
 	return videoByName(name)
 }
 
-// anyVideo is whether any message of the request gives a video.
-func anyVideo(r *Request) bool {
+// anyPart is whether any message of the request has a part is holds
+// for (isVideo, isAudio).
+func anyPart(r *Request, is func(Part) bool) bool {
 	for _, m := range r.Messages {
-		if slices.ContainsFunc(m.Parts, isVideo) {
+		if slices.ContainsFunc(m.Parts, is) {
 			return true
 		}
 	}
