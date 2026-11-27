@@ -15201,8 +15201,15 @@ function accountModels(p, ref, isKey, name) {
   if (!open) return [pill, null];
   const box = el("div", "acct-models");
   const chips = el("div", "mchips");
-  // served models, and any the account keeps
-  const ids = p.models.filter((m) => m.on).map((m) => m.id);
+  // Served models, and media models enabled in the provider editor. Media
+  // models are kept apart from p.models because agents cannot chat with them.
+  const ids = [];
+  const add = (id) => { if (id && !ids.includes(id)) ids.push(id); };
+  for (const m of p.models) if (m.on) add(m.id);
+  const hiddenDrawers = draft?.id === p.id ? draft.hiddenDrawers : p.hiddenDrawers;
+  const hiddenVideomakers = draft?.id === p.id ? draft.hiddenVideomakers : p.hiddenVideomakers;
+  for (const id of p.drawIds || []) if (!hiddenDrawers?.includes(id)) add(id);
+  for (const id of p.filmIds || []) if (!hiddenVideomakers?.includes(id)) add(id);
   const foot = el("div", "acm-foot");
   const save = el("button", "text primary", t("Save"));
   const post = async (allow, msg) => {
@@ -15215,7 +15222,7 @@ function accountModels(p, ref, isKey, name) {
     chips.replaceChildren();
     const tells = modelTells(ids.map((id) => p.models.find((x) => x.id === id) || { id }));
     for (const id of ids) {
-      const m = p.models.find((x) => x.id === id);
+      const m = p.models.find((x) => x.id === id) || { id, name: p.drawNames?.[id] || id };
       const on = acctModels.chosen.includes(id);
       const c = el("button", "mchip pick" + (on ? " on" : ""));
       c.append(el("span", "", m?.name && m.name !== id ? m.name : id));

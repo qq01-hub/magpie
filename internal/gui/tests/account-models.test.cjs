@@ -34,8 +34,10 @@ const fresh = () => ({
   },
   claude: {
     id: "claude", name: "Claude", icon: "claude-color", chat: "", responses: "", anthropic: "", catalog: "",
-    models: [{ id: "claude-opus-5", name: "", on: true }], agents: [], fallback: [], headers: {}, keyList: [], proxy: "",
-    account: { agent: "claude", agentName: "Claude Code", user: "solo@example.com", plan: "MAX", logins: [{ user: "solo@example.com", plan: "MAX", active: true, on: true }] },
+    models: [{ id: "claude-opus-5", name: "", on: true }], drawIds: ["gpt-image-2"], drawNames: { "gpt-image-2": "GPT Image 2" },
+    agents: [], fallback: [], headers: {}, keyList: [], proxy: "",
+    account: { agent: "claude", agentName: "Claude Code", user: "solo@example.com", plan: "MAX", logins: [{ user: "solo@example.com", plan: "MAX", active: true, on: true }, { user: "spare@example.com", plan: "MAX", on: true }] },
+    accountModels: { "solo@example.com": ["claude-opus-5"] },
   },
   relay: {
     id: "relay", name: "Relay", icon: "generic", chat: "https://relay.example.com/v1", responses: "", anthropic: "", catalog: "",
@@ -217,6 +219,15 @@ for (const engine of (process.env.BROWSER ? [process.env.BROWSER] : ["chromium",
       return posts.slice(n);
     };
 
+    test(`${engine} ${lang}: an account picker includes enabled image models`, async (t) => {
+      const { page, errors } = await open(t, "Claude", ".editor .accts .acc .amodels.set");
+      await pill(page, "solo@example.com").click();
+      assert.deepEqual(await chips(page, "solo@example.com"), ["claude-opus-5*", "GPT Image 2"]);
+      await panel(page, "solo@example.com").locator(".mchip", { hasText: "GPT Image 2" }).click();
+      assert.deepEqual(await chips(page, "solo@example.com"), ["claude-opus-5*", "GPT Image 2*"]);
+      assert.deepEqual(errors, []);
+    });
+
     test(`${engine} ${lang}: the editor's Save saves an account's unsaved picks first`, async (t) => {
       const { page, errors, posts } = await open(t, "Codex", ".editor .accts .acc .amodels.set");
       await pill(page, "Spare@Example.com").click();
@@ -262,9 +273,9 @@ for (const engine of (process.env.BROWSER ? [process.env.BROWSER] : ["chromium",
       assert.deepEqual(errors, []);
     });
 
-    test(`${engine} ${lang}: a subscription with one account has no models badge`, async (t) => {
-      const { page, errors } = await open(t, "Claude", ".editor .accts .acc");
-      assert.equal(await page.locator(".editor .accts .amodels").count(), 0);
+    test(`${engine} ${lang}: every Claude account has a models badge when there are several`, async (t) => {
+      const { page, errors } = await open(t, "Claude", ".editor .accts .acc .amodels.set");
+      assert.equal(await page.locator(".editor .accts .amodels").count(), 2);
       assert.deepEqual(errors, []);
     });
   }
