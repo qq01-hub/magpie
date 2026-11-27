@@ -72,6 +72,8 @@ type Fake struct {
 	// Tools are what tools/list lists, when set; the reply is otherwise
 	// the bare method's name
 	Tools []string
+	// RenewalStatus makes refresh-token requests fail with this HTTP status.
+	RenewalStatus int
 
 	refuse bool // RefuseTokens
 	// throttle is a token endpoint turning every renewal away with 429
@@ -225,6 +227,10 @@ func New(t *testing.T) *Fake {
 			offline = offline || slices.Contains(strings.Fields(g.scope), "offline_access")
 		case "refresh_token":
 			f.refreshAsked++
+			if f.RenewalStatus != 0 {
+				w.WriteHeader(f.RenewalStatus)
+				return
+			}
 			if f.throttle {
 				// Canva's answer (#7451, Asher-S-Wu)
 				if f.retryAfter != "" {
