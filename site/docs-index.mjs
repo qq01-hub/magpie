@@ -10,6 +10,7 @@ import { createHash } from "node:crypto";
 import { readFile, readdir, writeFile } from "node:fs/promises";
 import { build as llmsFull } from "./llms-full.mjs";
 import { build as searchIndex } from "./search-index.mjs";
+import { isMain } from "./entry.mjs";
 
 const pub = new URL("./public/", import.meta.url);
 export const SUMS = new URL("./docs-index.sums", import.meta.url);
@@ -36,4 +37,4 @@ export async function writeAll() {
   await writeFile(SUMS, await sums());
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) await writeAll();
+if (isMain(import.meta.url)) await writeAll();
