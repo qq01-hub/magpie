@@ -288,13 +288,19 @@ type NestedRule struct {
 // groupRef is the trace's g, with its models ms.
 func groupRef(g provider.Group, ms []provider.Member) *GroupRef {
 	ref := &GroupRef{ID: g.ID, Ref: g.Ref(), Name: g.Name, Routing: g.Routing, Affinity: g.Affinity, Auto: g.Auto, Sink: sinks(g.Sinks(), g.Routing)}
-	seen := map[string]bool{}
+	// Shared places keep groups with no model unique to them in the trace
+	places := slices.Clone(ms)
 	for _, m := range ms {
 		ref.Members = append(ref.Members, m.Spelled())
 		if m.Fast {
 			ref.Fast = append(ref.Fast, ref.Members[len(ref.Members)-1])
 		}
 		ref.Via = append(ref.Via, strings.Join(m.Groups(), ">"))
+		places = append(places, m.Also...)
+	}
+	slices.SortStableFunc(places, func(a, b provider.Member) int { return a.At - b.At })
+	seen := map[string]bool{}
+	for _, m := range places {
 		in := g.ID
 		for _, v := range m.Via {
 			if !seen[v.ID] {

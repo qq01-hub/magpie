@@ -3798,7 +3798,7 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request, from provider.Pro
 		// the rule's member first, over whoever answered last, as a turn
 		// begins; within it, whoever answered last stays while it is of
 		// the rule's member, the member's others behind it (#1946)
-		cands, pl = ruleOver(hit, ms, cands, pl, aff)
+		cands, pl = ruleOver(hit, ms, cands, pl, aff, nil)
 	}
 	// the groups in the group as the rule's has them: a model it shares
 	// with a group ahead of it is its, for its rules (#2361)
