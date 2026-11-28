@@ -134,14 +134,18 @@ type Project struct {
 // given the shared one. A project folder inside a repository but not at
 // its root isn't read by dsh: run there, it looks in the repository's
 // root (#5172). Bub reads <workspace>/.agents/skills (iter_skill_roots,
-// bub/skills.py 0.6.2). MiMo Code, Crush,
-// ZCode and oh-my-pi say of no project folder magpie can rely on.
+// bub/skills.py 0.6.2). oh-my-pi's native discovery walks project ancestors
+// for .omp/skills (loadSkills, can1357/oh-my-pi e045d0a1); unlike its shared
+// .agents/skills support, the native folder does not need version 11 or
+// skills.enableAgentsProject. MiMo Code, Crush and ZCode say of no project
+// folder magpie can rely on.
 var projectSkillsDirs = map[string]string{
 	"claude":      ".claude/skills",
 	"codex":       ".agents/skills",
 	"gemini":      ".agents/skills",
 	"opencode":    ".agents/skills",
 	"pi":          ".agents/skills",
+	"omp":         ".omp/skills",
 	"cursor":      ".agents/skills",
 	"copilot":     ".agents/skills",
 	"agy":         ".agents/skills",

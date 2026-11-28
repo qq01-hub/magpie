@@ -43,6 +43,9 @@ import (
 // relative to the workspace root, and "MCP Servers (mcp_config.json)"
 // among what any root holds; agy 1.5.15 started a server from it, at the
 // project's root and from a folder inside it, jiangnan_ on X).
+// oh-my-pi reads .omp/mcp.json's mcpServers under every profile, regardless
+// of PI_CONFIG_DIR (loadMCPServers in discovery/builtin.ts and docs/mcp-config.md,
+// can1357/oh-my-pi e045d0a1).
 // Each is written in the shape the agent's user-wide file has.
 // DeepSeek Harness has none: its servers are @deepseek-ai/dsh-mcp-client
 // rows in a profile's patch layers (bundles, the profile's and
@@ -59,6 +62,7 @@ var projectMCPFiles = map[string]struct {
 	"opencode":  {"opencode.json", fmtOpenCode},
 	"zcode":     {".zcode/config.json", fmtZCode},
 	"pi":        {".pi/mcp.json", fmtPiNative},
+	"omp":       {".omp/mcp.json", fmtOmp},
 	"qoder":     {".qoder/settings.json", fmtOmp},
 	"qoder-cn":  {".qoder/settings.json", fmtOmp},
 	"codebuddy": {".mcp.json", fmtClaude},
