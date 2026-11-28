@@ -90,11 +90,17 @@ func balanceReadID(raw string) string {
 // before and after its wait, so a request queued behind a 429 never reaches
 // the same upstream limit window.
 func (l *balanceReadLimitsT) take(ctx context.Context, raw string) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	origin := balanceReadOrigin(raw)
 	if origin == "" {
 		return nil
 	}
 	for {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
 		if err := l.cooldownError(raw); err != nil {
 			return err
 		}
@@ -107,7 +113,17 @@ func (l *balanceReadLimitsT) take(ctx context.Context, raw string) error {
 		}
 		wait := s.lastStart.Add(balanceReadStagger).Sub(now)
 		if wait <= 0 {
+			if err := ctx.Err(); err != nil {
+				l.mu.Unlock()
+				return err
+			}
+			previous := s.lastStart
 			s.lastStart = now
+			if err := ctx.Err(); err != nil {
+				s.lastStart = previous
+				l.mu.Unlock()
+				return err
+			}
 			l.mu.Unlock()
 			return l.cooldownError(raw)
 		}
@@ -116,14 +132,10 @@ func (l *balanceReadLimitsT) take(ctx context.Context, raw string) error {
 		t := time.NewTimer(wait)
 		select {
 		case <-ctx.Done():
-			if !t.Stop() {
-				<-t.C
-			}
+			t.Stop()
 			return ctx.Err()
 		case <-changed:
-			if !t.Stop() {
-				<-t.C
-			}
+			t.Stop()
 		case <-t.C:
 		}
 	}

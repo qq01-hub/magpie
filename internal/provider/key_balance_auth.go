@@ -185,7 +185,7 @@ func keyAccountQuery(ctx context.Context, q Provider) Provider {
 		if !probesBalance(plain) {
 			return q
 		}
-		u, found := probeBalance(ctx, plain)
+		u, found, _ := probeBalance(ctx, plain)
 		if !found {
 			return q
 		}

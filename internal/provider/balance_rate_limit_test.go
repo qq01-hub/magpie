@@ -10,6 +10,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
+	"testing/synctest"
 	"time"
 )
 
@@ -26,6 +27,41 @@ func saveBalanceRateTestProvider(t *testing.T, p Provider) {
 	if err := Save(p); err != nil {
 		t.Fatal(err)
 	}
+}
+
+func TestBalanceReadLimitsTakeCanceledContextDoesNotReserveOrigin(t *testing.T) {
+	limits := newBalanceReadLimits()
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	const endpoint = "https://relay.example/api/usage/token"
+
+	if err := limits.take(ctx, endpoint); err != context.Canceled {
+		t.Fatalf("take with canceled context = %v, want context.Canceled", err)
+	}
+	if state := limits.origins[balanceReadOrigin(endpoint)]; state != nil && !state.lastStart.IsZero() {
+		t.Fatalf("canceled read reserved the origin until %s", state.lastStart)
+	}
+}
+
+func TestBalanceReadLimitsTakeCanceledWhileWaitingReturns(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		limits := newBalanceReadLimits()
+		const endpoint = "https://relay.example/api/usage/token"
+		if err := limits.take(context.Background(), endpoint); err != nil {
+			t.Fatal(err)
+		}
+
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		done := make(chan error, 1)
+		go func() { done <- limits.take(ctx, endpoint) }()
+		synctest.Wait()
+		cancel()
+		synctest.Wait()
+		if err := <-done; err != context.Canceled {
+			t.Fatalf("take canceled while waiting = %v, want context.Canceled", err)
+		}
+	})
 }
 
 func TestKeyBalancesBackOffAfter429(t *testing.T) {
