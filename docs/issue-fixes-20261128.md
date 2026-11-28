@@ -4,7 +4,7 @@
 
 账号为 [qq01-hub](https://github.com/qq01-hub)，整合分支为 [fix/unanswered-issues-20261128](https://github.com/qq01-hub/magpie/tree/fix/unanswered-issues-20261128)
 
-以下是已经完成并审核的第一组 8 项，本轮其余问题仍在独立工作树处理
+以下是已经完成并审核的 9 项，本轮其余问题仍在独立工作树处理
 
 | Issue | 修复与边界 | 独立分支 | 审核 HEAD |
 | --- | --- | --- | --- |
@@ -16,6 +16,7 @@
 | [#7584](https://github.com/yetone/magpie/issues/7584) | 显示托管 Claude Code 和 agy CLI 的版本，普通 Claude 安装优先，托管副本与 agy 不增加不支持的更新或安装操作 | [fix/7584-managed-agent-versions](https://github.com/qq01-hub/magpie/tree/fix/7584-managed-agent-versions) | `d3a1f3efbb6f2563ead6bd26e2d3897d64d5be94` |
 | [#7960](https://github.com/yetone/magpie/issues/7960) | 同账号 Gemini 4 argon/carbon/hydrogen/neon 共享 opaque，旧缓存按共享键、当前 tier 的两种拼写、其他 tier 的顺序读取，其他账号及模型保持隔离 | [fix/7960-copilot-gemini-opaque-family](https://github.com/qq01-hub/magpie/tree/fix/7960-copilot-gemini-opaque-family) | `8684801341a4aba8e0f0c3962db3ac715e19f347` |
 | [#7939](https://github.com/yetone/magpie/issues/7939) | WebSocket 转内部 POST 时复用大正文，保留小正文的独立缓冲和实际字节数限制，伪造较小 Content-Length 仍返回 413 | [fix/7939-responses-websocket-body](https://github.com/qq01-hub/magpie/tree/fix/7939-responses-websocket-body) | `8e158cc05fcb56f4be73c0b401bb69e7c6888392` |
+| [#8019](https://github.com/yetone/magpie/issues/8019) | 站点脚本通过规范化真实路径判断命令入口，路径含空格、`#` 或经符号链接调用时仍执行，作为模块导入时无命令副作用 | [fix/8019-site-entry-paths](https://github.com/qq01-hub/magpie/tree/fix/8019-site-entry-paths) | `2120148bedb0d7cfdffaee9e424465a260ea094b` |
 
 ## 实际失败复现与验证
 
@@ -31,6 +32,7 @@
 | #7584 | 托管 Claude 与 agy 的版本为空 | 两个新增跨平台行为测试及版本解析通过，三个既有 Unix shell fixture 测试在 Windows 跳过 |
 | #7960 | 切换 tier 丢失 opaque，旧缓存冲突时取到 sibling 而非当前 tier，前缀别名也有同类问题 | 10 个顶层相关测试和 5 个子测试通过，包含真实本地 HTTP 请求和协议翻译路径 |
 | #7939 | 33554444 字节的 socket 请求仍整份复制 | 三个 body ownership / limit 测试通过 race，另 42 个相关顶层 socket/request/unrouted 测试通过 |
+| #8019 | 三个索引命令在特殊路径和链接入口下缺少生成文件，链接 credits 命令意外返回成功 | Node 24.22.3 定向 27 项全部通过，完整 site 套件为 176 通过、33 失败，33 项均属于 Windows 上的 Unix installer fixture，原基线同名 33 项也失败 |
 
 说明：#7777 提交正文中边界红测的 “on the base” 指作者补丁上的边界版本，原始主干复现与作者补丁补强是两个独立失败记录
 
