@@ -148,6 +148,10 @@ func targetOf(a *agent.Agent) *Target {
 	}
 	h := home()
 	t := &Target{Agent: a}
+	if strings.HasPrefix(a.ID, "omp#") {
+		setOmpTarget(t, a)
+		return t
+	}
 	if strings.HasPrefix(a.ID, "hermes#") {
 		// another Hermes profile (agent.hermesProfileAgents) is a Hermes
 		// home of its own: its config.yaml holds its mcp_servers, and its
@@ -278,13 +282,7 @@ func targetOf(a *agent.Agent) *Target {
 		t.Skills = filepath.Join(d, "skills")
 	case "omp":
 		// ~/.omp/agent, or where omp's variables move it (agent.ompDir)
-		d := a.Dir
-		t.Instructions = filepath.Join(d, "AGENTS.md")
-		// omp reads mcpServers from its agent folder's mcp.json
-		// (discovery/builtin.ts), type choosing the transport
-		t.MCP = &mcpFile{Path: filepath.Join(d, "mcp.json"), Format: fmtOmp}
-		t.Skills = filepath.Join(d, "skills")
-		t.SharedToo = since(ompVersion(a), ompSharedSince)
+		setOmpTarget(t, a)
 	case "omo":
 		// OmO's engine (senpi, a fork of Pi) reads its agent folder's
 		// AGENTS.md, skills and mcp.json — mcpServers in the shape Pi 0.99's
@@ -757,6 +755,16 @@ func targetOf(a *agent.Agent) *Target {
 	return t
 }
 
+func setOmpTarget(t *Target, a *agent.Agent) {
+	d := a.Dir
+	t.Instructions = filepath.Join(d, "AGENTS.md")
+	// omp reads mcpServers from its agent folder's mcp.json
+	// (discovery/builtin.ts), type choosing the transport
+	t.MCP = &mcpFile{Path: filepath.Join(d, "mcp.json"), Format: fmtOmp}
+	t.Skills = filepath.Join(d, "skills")
+	t.SharedToo = since(ompVersionFor(a), ompSharedSince)
+}
+
 // firstThere is the first of names in dir that is there, as an agent that
 // reads only the first of them finds it; the first name when none is.
 func firstThere(dir string, names ...string) string {
@@ -1011,12 +1019,22 @@ var ownFolder = map[string]bool{
 // keeps everything in its own folder; nil for any other.
 func wslOwnFolder(a *agent.Agent) *Target {
 	id, at, _ := strings.Cut(a.ID, "@")
-	if !ownFolder[id] {
+	base, _, _ := strings.Cut(id, "#")
+	if !ownFolder[base] {
 		return nil
 	}
 	local := *a
 	local.ID, local.WSL = id, ""
-	t := targetOf(&local)
+	var t *Target
+	if strings.HasPrefix(id, "omp#") {
+		// The profile's version is the distro's probed omp, not this
+		// computer's PATH. Keep the WSL agent while making its own-folder
+		// target so ompVersionFor reads that version.
+		t = &Target{Agent: a}
+		setOmpTarget(t, a)
+	} else {
+		t = targetOf(&local)
+	}
 	if t == nil {
 		return nil
 	}
@@ -1278,6 +1296,15 @@ const (
 
 // ompVersion is the version of the omp on PATH, "" when not known.
 var ompVersion = func(a *agent.Agent) string { return a.InstalledVersion() }
+
+func ompVersionFor(a *agent.Agent) string {
+	if a.WSL == "" && a.Bin == "" && strings.HasPrefix(a.ID, "omp#") {
+		base := *a
+		base.ID, base.Bin = "omp", "omp"
+		return ompVersion(&base)
+	}
+	return ompVersion(a)
+}
 
 // since is whether version v, when known, is at or after first.
 func since(v, first string) bool { return v != "" && !agent.Newer(first, v) }
