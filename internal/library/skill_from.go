@@ -95,6 +95,7 @@ type lockEntry struct {
 	repo   string
 	at     time.Time
 	github bool
+	source *Source
 }
 
 // lockSlack is how long after its files a lock entry may be written: the
@@ -214,6 +215,11 @@ func readSkillLock(path string) map[string]lockEntry {
 		}
 		if r != "" {
 			le := lockEntry{repo: r, github: gh}
+			if e.SourceType == "git" {
+				if src, ok, err := gitSource(e.SourceURL); ok && err == nil {
+					le.source = &src
+				}
+			}
 			for _, ts := range []string{e.UpdatedAt, e.InstalledAt} {
 				if at, err := time.Parse(time.RFC3339Nano, ts); err == nil {
 					le.at = at
@@ -288,6 +294,12 @@ func siteOf(s string) string {
 // folder, or a folder of an app's own in it (~/.claude kept in git), is
 // the user's dotfiles rather than where the skill came from.
 func gitRepoOf(dir string) string {
+	return remoteRepo(gitRemoteOf(dir))
+}
+
+// gitRemoteOf keeps the checkout's own address for fetching, while its
+// grouping key (gitRepoOf) never contains a user or token.
+func gitRemoteOf(dir string) string {
 	h := realDir(home())
 	// a skill's own folder and four above it: a probe finds skills as
 	// far as four folders into a repository (candidates), and a checkout's
@@ -327,7 +339,7 @@ func originURL(cfg string) string {
 			continue
 		}
 		if k, v, ok := strings.Cut(l, "="); in && ok && strings.TrimSpace(k) == "url" {
-			return remoteRepo(strings.TrimSpace(v))
+			return strings.TrimSpace(v)
 		}
 	}
 	return ""
@@ -372,7 +384,7 @@ func remoteRepo(s string) string {
 // from it is that skill. root is where the repository was fetched to. It
 // gives how many it noted.
 func noteFrom(src Source, root string, cands []Candidate) int {
-	if src.Kind != "github" {
+	if !src.remote() {
 		return 0
 	}
 	mu.Lock()
@@ -382,15 +394,18 @@ func noteFrom(src Source, root string, cands []Candidate) int {
 		return 0
 	}
 	tr := &tracer{}
-	have := slices.ContainsFunc(l.Skills, func(s *Skill) bool { return strings.EqualFold(tr.repoOf(s), src.Repo) })
+	have := slices.ContainsFunc(l.Skills, func(s *Skill) bool { return sameRepo(s.Source, src) || tracedTo(tr.repoOf(s), src) })
 	noted, bound := 0, 0
 	var same []*Skill
 	for _, c := range cands {
 		s := l.skill(c.Name)
-		if s == nil || (s.Source != nil && s.Source.Kind == "github") {
+		if s == nil || s.Source.remote() {
 			continue
 		}
-		grouped := strings.EqualFold(s.From, src.Repo)
+		if r := tr.repoOf(s); r != "" && !tracedTo(r, src) {
+			continue
+		}
+		grouped := tracedTo(s.From, src)
 		mine, err1 := os.ReadFile(filepath.Join(skillDir(s.Name), "SKILL.md"))
 		theirs, err2 := os.ReadFile(filepath.Join(root, filepath.FromSlash(c.Path), "SKILL.md"))
 		if err1 != nil || err2 != nil {
@@ -407,8 +422,8 @@ func noteFrom(src Source, root string, cands []Candidate) int {
 			// elsewhere is kept by whatever put it there (npx skills, a
 			// git checkout), and an edited one stays only grouped.
 			if dir := skillDir(s.Name); s.Source == nil && !linked(dir) && sameTree(dir, filepath.Join(root, filepath.FromSlash(c.Path))) {
-				s.Source = &Source{Kind: "github", Repo: src.Repo, Ref: src.Ref, Path: c.Path}
-				s.Hash, s.Own, s.Commit, s.From = hashDir(dir), ownHash(dir), "", ""
+				s.Source = &Source{Kind: src.Kind, Repo: src.Repo, Ref: src.Ref, Path: c.Path}
+				s.Hash, s.Own, s.Commit, s.From = hashDir(dir), ownHash(dir), gitHeadOf(root), ""
 				l.seenAt(repoKey(src.Repo, src.Ref), c.Path)
 				forgetCheck(s.Name)
 				bound++
@@ -430,7 +445,7 @@ func noteFrom(src Source, root string, cands []Candidate) int {
 }
 
 // RegroupSkills traces the library's skills again (the Library page's
-// Group again): each GitHub repository a skill is traced to is fetched,
+// Group again): each repository a skill has a source for is fetched,
 // and the skills it has that aren't grouped with it yet are noted as from
 // there, as installing from it again would. It gives how many were
 // grouped; an error only when no repository could be fetched.
@@ -440,22 +455,47 @@ func RegroupSkills() (int, error) {
 		return 0, err
 	}
 	tr := &tracer{}
-	var repos []string
+	var repos []Source
 	seen := map[string]bool{}
 	for _, s := range l.Skills {
 		r := tr.repoOf(s)
-		// a site's kit (docs.example.com/kit) reads like owner/repo, but
-		// a GitHub owner has no dot
-		if !repoRe.MatchString(r) || strings.Contains(strings.Split(r, "/")[0], ".") || seen[strings.ToLower(r)] {
+		var src Source
+		switch {
+		case s.Source.remote():
+			src = *s.Source
+			src.Path = ""
+		case repoRe.MatchString(r) && !strings.Contains(strings.Split(r, "/")[0], "."):
+			// A site's kit (docs.example.com/kit) reads like owner/repo,
+			// but a GitHub owner has no dot
+			src = Source{Kind: "github", Repo: r}
+		case strings.Contains(s.From, "://") || scpRemote.MatchString(s.From):
+			candidate, ok, parseErr := gitSource(s.From)
+			if !ok || parseErr != nil || strings.Contains(s.From, "/.well-known/") {
+				continue
+			}
+			src = candidate
+		case tr.lock()[s.Name].source != nil && tr.lockRepo(s.Name, realDir(skillDir(s.Name))) != "" && tracedTo(r, *tr.lock()[s.Name].source):
+			src = *tr.lock()[s.Name].source
+		case linked(skillDir(s.Name)):
+			candidate, ok, parseErr := gitSource(gitRemoteOf(realDir(skillDir(s.Name))))
+			if !ok || parseErr != nil || !tracedTo(r, candidate) {
+				continue
+			}
+			src = candidate
+		default:
 			continue
 		}
-		seen[strings.ToLower(r)] = true
-		repos = append(repos, r)
+		src.Path = ""
+		key := strings.ToLower(repoKey(src.Repo, src.Ref))
+		if seen[key] {
+			continue
+		}
+		seen[key] = true
+		repos = append(repos, src)
 	}
 	noted, fetched := 0, 0
 	var first error
-	for _, r := range repos {
-		src := Source{Kind: "github", Repo: r}
+	for _, src := range repos {
 		root, err := fetch(src)
 		if err != nil {
 			if first == nil {
