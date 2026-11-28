@@ -45,6 +45,8 @@ type pluginCheckinAcct struct {
 	do     func(context.Context) WorkBuddyCheckin
 }
 
+var pluginAccountCheckin = plugin.AccountCheckin
+
 // pluginCheckinKey is a plugin sign-in's entry in plugin-checkin.json and
 // settings.CheckinOff: the provider and the key plugin-auth.json keeps the
 // sign-in under ("autoclaw", "autoclaw#x1y2z3"). Two sign-ins never share
@@ -86,7 +88,12 @@ var pluginCheckinProviders = func() []pluginCheckinProvider {
 			id := pp.ID
 			p.accounts = append(p.accounts, pluginCheckinAcct{User: l.User, On: l.On, key: pluginCheckinKey(id, acct), legacy: pluginCheckinLegacyKey(id, l.acct), card: card,
 				do: func(ctx context.Context) WorkBuddyCheckin {
-					c, err := plugin.AccountCheckin(ctx, id, acct)
+					ctx, cancel := withCheckinBudget(ctx)
+					defer cancel()
+					if err := ctx.Err(); err != nil {
+						return wbCheckinFailed(err)
+					}
+					c, err := pluginAccountCheckin(ctx, id, acct)
 					if err != nil {
 						return wbCheckinFailed(err)
 					}
@@ -291,6 +298,8 @@ type pluginCheckiner struct {
 }
 
 func (c pluginCheckiner) clock() time.Time { return c.now() }
+
+func (pluginCheckiner) checkinRoundUnbounded() {}
 
 func (c pluginCheckiner) checkinNow(ctx context.Context, soon bool) []WorkBuddyCheckin {
 	if discoveryOff() {

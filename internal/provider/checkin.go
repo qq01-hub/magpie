@@ -56,6 +56,12 @@ type checkinRunner interface {
 	clock() time.Time
 }
 
+// checkinRoundUnbounded marks plugin check-ins whose accounts have their own
+// budgets and must not share the built-in round's two-minute deadline
+type checkinRoundUnbounded interface {
+	checkinRoundUnbounded()
+}
+
 func (c checkiner) clock() time.Time { return c.now() }
 
 // checkinNow checks each account in use in for today that isn't yet, and
