@@ -413,6 +413,9 @@ type Agent struct {
 	// #7872). A folder holding only these (and skills) is no sign the
 	// agent is here.
 	readHere []string
+	// readDirs are directories another app creates inside Dir, no sign of
+	// this agent on their own: OpenCode's browser integration (#8068).
+	readDirs []string
 	// synced are the names in Dir magpie's Library writes for the agent
 	// (a folder's with a trailing "/"), and syncedKeys the files it
 	// writes some of the keys of, with those top-level keys: Codex's
@@ -540,11 +543,12 @@ func (a *Agent) configHere() bool {
 
 // notSign reports whether e, an entry in Dir, says nothing of the agent:
 // the sign-in magpie wrote (signIn), a file another app reads there
-// (readHere), or what magpie's Library wrote there (synced, syncedKeys).
+// (readHere), a directory another app creates (readDirs), or what magpie's
+// Library wrote there (synced, syncedKeys).
 func (a *Agent) notSign(e os.DirEntry) bool {
 	n := e.Name()
 	if e.IsDir() {
-		return slices.Contains(a.synced, n+"/")
+		return slices.Contains(a.readDirs, n) || slices.Contains(a.synced, n+"/")
 	}
 	return n == a.signIn || slices.Contains(a.readHere, n) || slices.Contains(a.synced, n) || a.syncedOnly(filepath.Join(a.Dir, n))
 }
