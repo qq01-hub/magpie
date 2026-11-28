@@ -210,6 +210,11 @@ func TestCodexTitleOnMagpieProvider(t *testing.T) {
 			t.Fatalf("backend %v: %d %q", backend, rec.Code, rec.Body.String())
 		}
 	}
+	answer = "タイトル: ログインの問題を修正"
+	f.reply = reply()
+	if text, _ := outputText(t, codexProviderTitle(t, s, false).Body.String()); text != `{"title":"ログインの問題を修正"}` {
+		t.Fatalf("localized title through handler: %q", text)
+	}
 	calls := f.calls
 
 	// the setting holds on /v1 as well
@@ -256,11 +261,24 @@ func strconvQuote(s string) string { b, _ := json.Marshal(s); return string(b) }
 
 func TestTitleJSON(t *testing.T) {
 	for in, want := range map[string]string{
-		`{"title":"Fix login bug"}`:                      `{"title":"Fix login bug"}`,
-		"```json\n{\"title\": \"Fix login\"}\n```":       `{"title":"Fix login"}`,
-		`"Fix login bug"`:                                `{"title":"Fix login bug"}`,
-		"Title: Fix login\n\nmore words":                 `{"title":"Fix login"}`,
-		"**修复登录问题**":                                     `{"title":"修复登录问题"}`,
+		`{"title":"Fix login bug"}`: `{"title":"Fix login bug"}`,
+		`{"Title":"case fallback","标题":"本地化标题","title":"exact title"}`: `{"title":"exact title"}`,
+		`{"标题":"修复登录问题"}`:                                              `{"title":"修复登录问题"}`,
+		`{"標題":"ログインの問題を修正"}`:                                          `{"title":"ログインの問題を修正"}`,
+		`{"제목":"로그인 문제 수정"}`:                                           `{"title":"로그인 문제 수정"}`,
+		`{"title":7,"タイトル":"ログインの問題を修正"}`:                              `{"title":"ログインの問題を修正"}`,
+		`{"title":"","标题":"应由精确 title 的空值优先"}`:                         "",
+		"```json\n{\"title\": \"Fix login\"}\n```":                     `{"title":"Fix login"}`,
+		`"Fix login bug"`:                `{"title":"Fix login bug"}`,
+		"Title: Fix login\n\nmore words": `{"title":"Fix login"}`,
+		"标题: 查找DeepSeek工具接":              `{"title":"查找DeepSeek工具接"}`,
+		"标题：修复登录问题":                      `{"title":"修复登录问题"}`,
+		"標題: ログインの問題を修正":                 `{"title":"ログインの問題を修正"}`,
+		"제목: 로그인 문제 수정":                  `{"title":"로그인 문제 수정"}`,
+		"タイトル：ログインの問題を修正":                `{"title":"ログインの問題を修正"}`,
+		"标题":         `{"title":"标题"}`,
+		"标题党: 这不是标签": `{"title":"标题党: 这不是标签"}`,
+		"**修复登录问题**": `{"title":"修复登录问题"}`,
 		"<think>\nthe user wants\n</think>\n\nFix login": `{"title":"Fix login"}`,
 		"":             "",
 		`{"name":"x"}`: "",
@@ -268,6 +286,29 @@ func TestTitleJSON(t *testing.T) {
 		if got := titleJSON(in, titleShape{}); got != want {
 			t.Errorf("titleJSON(%q) = %q, want %q", in, got, want)
 		}
+	}
+}
+
+func TestTitleFieldPrefersExactTitle(t *testing.T) {
+	fields := map[string]any{
+		"Title": "case-insensitive compatibility",
+		"title": "exact title",
+	}
+	for range 100 {
+		if got, ok := titleField(fields); !ok || got != "exact title" {
+			t.Fatalf("titleField(%v) = %q, %v, want exact title", fields, got, ok)
+		}
+	}
+}
+
+func TestTitleFieldUsesLocalizedOrderBeforeCaseFallback(t *testing.T) {
+	fields := map[string]any{
+		"標題":    "traditional Chinese",
+		"标题":    "simplified Chinese",
+		"TITLE": "case-insensitive compatibility",
+	}
+	if got, ok := titleField(fields); !ok || got != "simplified Chinese" {
+		t.Fatalf("titleField(%v) = %q, %v, want simplified Chinese", fields, got, ok)
 	}
 }
 
