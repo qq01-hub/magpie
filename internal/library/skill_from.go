@@ -486,7 +486,11 @@ func RegroupSkills() (int, error) {
 			continue
 		}
 		src.Path = ""
-		key := repoKey(strings.ToLower(src.Repo), src.Ref)
+		repo := src.Repo
+		if src.Kind == "github" {
+			repo = strings.ToLower(repo)
+		}
+		key := repoKey(repo, src.Ref)
 		if seen[key] {
 			continue
 		}

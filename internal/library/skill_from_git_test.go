@@ -10,6 +10,34 @@ import (
 	"time"
 )
 
+func TestRegroupGitKeepsRepoCase(t *testing.T) {
+	sandbox(t)
+	upper, _ := gitRepo(t, map[string]string{"skills/upper/SKILL.md": "---\nname: upper\ndescription: Upper\n---\nCurrent\n"})
+	lower, _ := gitRepo(t, map[string]string{"skills/lower/SKILL.md": "---\nname: lower\ndescription: Lower\n---\nCurrent\n"})
+	const upperRemote = "https://git.example.com/team/Kit.git"
+	const lowerRemote = "https://git.example.com/team/kit.git"
+	write(t, os.Getenv("GIT_CONFIG_GLOBAL"), "[url \""+upper+"\"]\n\tinsteadOf = "+upperRemote+"\n[url \""+lower+"\"]\n\tinsteadOf = "+lowerRemote+"\n")
+	for _, name := range []string{"upper", "lower"} {
+		write(t, filepath.Join(skillDir(name), "SKILL.md"), "---\nname: "+name+"\ndescription: Old\n---\nOlder copy\n")
+	}
+	ok(t)(change(func(l *Library) error {
+		l.Skills = append(l.Skills,
+			&Skill{Name: "upper-source", Source: &Source{Kind: "git", Repo: upperRemote}},
+			&Skill{Name: "lower-source", Source: &Source{Kind: "git", Repo: lowerRemote}},
+			&Skill{Name: "upper"}, &Skill{Name: "lower"})
+		return nil
+	}))
+	if n, err := RegroupSkills(); err != nil || n != 2 {
+		t.Fatalf("regroup case-sensitive repositories: %d %v, want two skills grouped", n, err)
+	}
+	l := mustLoad(t)
+	for name, want := range map[string]string{"upper": upperRemote, "lower": lowerRemote} {
+		if got := l.skill(name).From; got != want {
+			t.Errorf("%s group: %q, want %q", name, got, want)
+		}
+	}
+}
+
 func TestRegroupGitKeepsRefCase(t *testing.T) {
 	sandbox(t)
 	addr, commit := gitRepo(t, map[string]string{
