@@ -553,8 +553,11 @@ list through its HTTP reader.
 
 AiHubMix has returned `100000000` from `/dashboard/billing/remain` for
 API keys with unlimited quota. Magpie treats that value and the legacy
-negative value as an unlimited key. Add the account’s management key in
-provider settings to read the account balance. [Balance reader](../../internal/provider/balance.go)
+negative value as unlimited; zero and neighboring finite values are still
+balances. The card then asks for the account's balance through its management
+key, added in provider settings under *Account balance*.
+[`readAiHubMix`](../../internal/provider/balance.go) and `TestReadAiHubMix`
+cover the sentinel and its neighboring values.
 
 An allowance deliberately not requested (a saved Claude account outside
 its card refresh, or allowances set to *When I ask*) can use the last
