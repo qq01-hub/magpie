@@ -31,6 +31,8 @@ import (
 	"sync"
 	"time"
 
+	"gopkg.in/yaml.v3"
+
 	"github.com/yetone/magpie/internal/agent"
 	"github.com/yetone/magpie/internal/proc"
 )
@@ -134,7 +136,7 @@ func dshHooksPlugin(t *Target, file string, want bool, keep func(path string) er
 		profile := filepath.Dir(patch)
 		name := filepath.Base(profile)
 		if !want {
-			if err := dshDelHooksRow(patch, keep); err != nil {
+			if err := dshDelHooksRow(patch, file, keep); err != nil {
 				errs = append(errs, fmt.Errorf("profile %s: %w", name, err))
 			}
 			continue
@@ -147,7 +149,7 @@ func dshHooksPlugin(t *Target, file string, want bool, keep func(path string) er
 			if failed && time.Since(at) < dshInstallRetry {
 				errs = append(errs, fmt.Errorf("profile %s: the hooks plugin didn't install a moment ago; trying again later", name))
 				// a plugin the user removed leaves no row of magpie's behind
-				if err := dshDelHooksRow(patch, keep); err != nil {
+				if err := dshDelHooksRow(patch, file, keep); err != nil {
 					errs = append(errs, fmt.Errorf("profile %s: %w", name, err))
 				}
 				continue
@@ -166,7 +168,7 @@ func dshHooksPlugin(t *Target, file string, want bool, keep func(path string) er
 			if err != nil {
 				errs = append(errs, fmt.Errorf("profile %s: %w", name, err))
 				// the plugin isn't there, so no row of magpie's points at it
-				if derr := dshDelHooksRow(patch, keep); derr != nil {
+				if derr := dshDelHooksRow(patch, file, keep); derr != nil {
 					errs = append(errs, fmt.Errorf("profile %s: %w", name, derr))
 				}
 				continue
@@ -179,15 +181,32 @@ func dshHooksPlugin(t *Target, file string, want bool, keep func(path string) er
 	return errors.Join(errs...)
 }
 
+// dshHooksMatch checks the whole insert so a row with a user setting or a
+// sibling plugin stays theirs when Desktop moves the ownership comment.
+func dshHooksMatch(text, file string) bool {
+	var patches []map[string]any
+	if yaml.Unmarshal([]byte(text), &patches) != nil || len(patches) != 1 || len(patches[0]) != 1 {
+		return false
+	}
+	rows, ok := patches[0]["insert"].([]any)
+	if !ok || len(rows) != 1 {
+		return false
+	}
+	row, _ := rows[0].(map[string]any)
+	config, _ := row["config"].(map[string]any)
+	return len(row) == 3 && row["id"] == dshHooksRowID && row["name"] == dshHooksPkg &&
+		len(config) == 1 && config["configPath"] == file
+}
+
 // dshHooksItem is the index of magpie's hooks insert in the list, -1 when
 // there is none, and whether a row of the user's loads the same plugin.
-func (p *dshPatches) dshHooksItem() (mine int, theirs bool) {
+func (p *dshPatches) dshHooksItem(file string) (mine int, theirs bool) {
 	mine = -1
 	for i, it := range p.items {
-		switch {
-		case strings.TrimSpace(it[0]) == dshMark && len(it) > 1 && strings.TrimSpace(it[1]) == "- id: "+dshHooksRowID:
+		text := strings.Join(it, "\n")
+		if dshHooksMatch(text, file) {
 			mine = i
-		case strings.Contains(strings.Join(it, "\n"), dshHooksPkg):
+		} else if strings.Contains(text, dshHooksPkg) || strings.Contains(text, dshHooksRowID) {
 			theirs = true
 		}
 	}
@@ -199,7 +218,7 @@ func dshPutHooksRow(patch, file string, keep func(string) error) error {
 	if err != nil {
 		return err
 	}
-	i, theirs := p.dshHooksItem()
+	i, theirs := p.dshHooksItem(file)
 	if theirs {
 		return errors.New("its patch list loads the hooks plugin already, with a config of its own; magpie leaves that one")
 	}
@@ -211,7 +230,7 @@ func dshPutHooksRow(patch, file string, keep func(string) error) error {
 		"        configPath: " + dshScalar(file),
 	}
 	if i >= 0 {
-		if strings.Join(p.items[i], "\n") == strings.Join(lines, "\n") {
+		if dshHooksMatch(strings.Join(p.items[i], "\n"), file) {
 			return nil
 		}
 		p.items[i] = lines
@@ -224,7 +243,7 @@ func dshPutHooksRow(patch, file string, keep func(string) error) error {
 	return p.write(patch)
 }
 
-func dshDelHooksRow(patch string, keep func(string) error) error {
+func dshDelHooksRow(patch, file string, keep func(string) error) error {
 	p, err := dshRead(patch)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -232,7 +251,7 @@ func dshDelHooksRow(patch string, keep func(string) error) error {
 		}
 		return err
 	}
-	i, _ := p.dshHooksItem()
+	i, _ := p.dshHooksItem(file)
 	if i < 0 {
 		return nil
 	}
