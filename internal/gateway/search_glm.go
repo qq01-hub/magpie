@@ -21,7 +21,7 @@ import (
 // A GLM Coding Plan, Zhipu's or Z.ai's, searches the web with its own Web
 // Search MCP server, which the plan's key is given for (young02036 on
 // Discord): the Streamable HTTP server at the plan's host's
-// provider.ZhipuSearchPath, the key as a Bearer, its tool webSearchPrime
+// provider.ZhipuSearchPath, the key as a Bearer, its tool web_search_prime
 // asked with {"search_query": "…"} (docs.bigmodel.cn/cn/coding-plan/mcp/search-mcp-server,
 // docs.z.ai/devpack/mcp/search-mcp-server). magpie opens a session
 // (initialize, notifications/initialized), calls the tool once and ends
