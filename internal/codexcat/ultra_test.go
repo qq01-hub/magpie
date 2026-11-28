@@ -83,6 +83,9 @@ func TestUltraOnOtherVendorsModels(t *testing.T) {
 		{ID: "copilot/gpt-6-luna", Name: "GPT-6 Luna", Efforts: []string{"low", "high", "max"}},
 		{ID: "relay/o4-mini", Name: "o4-mini", Efforts: []string{"low", "high"}},
 		{ID: "relay/gpt-6-astra", Name: "sealed", Efforts: []string{"low", "high", "max"}, Seals: true},
+		{ID: "opencode-go/deepseek-v4.1-flash", Name: "DeepSeek V4.1 Flash", Efforts: []string{"low", "high"}},
+		{ID: "group/opencode-go", Name: "OpenCode Go group", Efforts: []string{"low", "high"}},
+		{ID: "group/opencode-mixed", Name: "mixed sealed group", Efforts: []string{"low", "high"}, Seals: true},
 		{ID: "group/fast", Name: "fast", Efforts: []string{"low", "high"}, Fast: true},
 		{ID: "kimi/kimi-k3", Name: "Kimi K3"},
 	}
@@ -92,7 +95,15 @@ func TestUltraOnOtherVendorsModels(t *testing.T) {
 	if err := json.Unmarshal(Catalog(ms), &got); err != nil {
 		t.Fatal(err)
 	}
-	ultra := map[string]bool{"anthropic/claude-opus-4-8": true, "zhipu/glm-5.3": true, "deepseek/deepseek-v4-pro": true, "group/mixed": true}
+	ultra := map[string]bool{
+		"anthropic/claude-opus-4-8":       true,
+		"zhipu/glm-5.3":                   true,
+		"deepseek/deepseek-v4-pro":        true,
+		"group/mixed":                     true,
+		"opencode-go/deepseek-v4.1-flash": true,
+		"group/opencode-go":               true,
+		"group/opencode-mixed":            false,
+	}
 	for _, m := range got.Models {
 		slug := m["slug"].(string)
 		var levels []string

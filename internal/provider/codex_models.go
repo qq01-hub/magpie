@@ -1192,22 +1192,23 @@ func CodexTiersWith(m *catalog.Model, e Entry, members func(id string) []Member,
 // none.
 func CodexSeals(m *catalog.Model, e Entry, members func(id string) []Member) {
 	if e.Group == "" {
-		m.Seals = maySeal(*e.Provider)
+		m.Seals = CodexMaySeal(*e.Provider)
 		return
 	}
 	for _, mb := range members(e.ID) {
-		if maySeal(mb.Provider) {
+		if CodexMaySeal(mb.Provider) {
 			m.Seals = true
 			return
 		}
 	}
 }
 
-// maySeal says p is of no sign-in and speaks the Responses API, as the
-// gateway's canSeal does (its Base, not Speaks: a list asks it of every
-// model).
-func maySeal(p Provider) bool {
-	return p.Account == nil && p.ID != "" && p.Base(Responses) != ""
+// CodexMaySeal says p is a no-sign-in Responses relay that can seal a
+// Codex lead's subagent task. OpenCode Go speaks Responses too, but its
+// gateway serves other vendors' models and does not use ChatGPT's task
+// encryption.
+func CodexMaySeal(p Provider) bool {
+	return p.Account == nil && p.ID != "" && p.Base(Responses) != "" && p.Preset != "opencode-go" && !p.atOpenCodeGo()
 }
 
 // codexFastTier is Fast's service tier as Codex sends it.
