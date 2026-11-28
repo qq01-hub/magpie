@@ -4,7 +4,7 @@
 
 账号为 [qq01-hub](https://github.com/qq01-hub)，整合分支为 [fix/unanswered-issues-20261128](https://github.com/qq01-hub/magpie/tree/fix/unanswered-issues-20261128)
 
-以下是已经完成并审核的 18 项，本轮其余问题仍在独立工作树处理
+以下是已经完成并审核的 19 项，本轮其余问题仍在独立工作树处理
 
 | Issue | 修复与边界 | 独立分支 | 审核 HEAD |
 | --- | --- | --- | --- |
@@ -26,6 +26,7 @@
 | [#7799](https://github.com/yetone/magpie/issues/7799) | 交互模式粘贴前清理 bidi 控制标记，保留原文、ZWJ emoji 和零宽空格，命令前缀保护在清理后仍生效 | [fix/7799-interactive-bidi-paste](https://github.com/qq01-hub/magpie/tree/fix/7799-interactive-bidi-paste) | `38728eb8e52c9a9b6c01054560449f7ba6aaf756` |
 | [#7888](https://github.com/yetone/magpie/issues/7888) | 同源余额刷新错开请求，429 后按 Retry-After 或指数退避等待并保留上次余额，探测限流不记录为无余额接口，等待可取消 | [fix/7888-balance-refresh-429](https://github.com/qq01-hub/magpie/tree/fix/7888-balance-refresh-429) | `eff2ed3148b16970a28ffd8de6f664c4cd68df1e` |
 | [#7894](https://github.com/yetone/magpie/issues/7894) | 插件签到按账号各自限时 10 分钟，保留调用方取消、较短截止时间和 context 值，内置签到维持 2 分钟整轮限制 | [fix/7894-plugin-checkin-budget](https://github.com/qq01-hub/magpie/tree/fix/7894-plugin-checkin-budget) | `03afc7e401b74565fc7e252b3e30db775e44b699` |
+| [#7574](https://github.com/yetone/magpie/issues/7574) | Windows Volta 默认安装的 Codex、Claude Code、omp 使用 Volta 更新，核对管理器元数据与入口归属，不误改普通 npm 或项目临时版本 | [fix/7574-windows-volta-updates](https://github.com/qq01-hub/magpie/tree/fix/7574-windows-volta-updates) | `c1f8056bd1e26e01b07e51f79b08f918b264e227` |
 
 ## 实际失败复现与验证
 
@@ -51,6 +52,7 @@
 | #7799 | 旧代码的交互 shim 仍将全部 bidi 标记发给模拟 Claude，四种前缀保护失败 | 新 shim 测试、Pasteable 和原有交互发送三项通过，整合分支同组通过；额外完整 claudetui 包运行中止，未作为通过，未运行真实 Claude Code 2.1.332 |
 | #7888 | 旧余额路径同源请求间隔为零，429 后第二次读取没有等待；作者补丁对已取消 context 仍返回成功 | 六项余额与两项取消测试及两个子案例通过 `-race -count=20`，整合代码同八项通过，覆盖秒数和 HTTP-date Retry-After、余额不足负例、迟到成功、探测和 last-good；额外 provider 整包在 `TestRestartSwitchedCodexAppReal` 失败并 panic，87.266 秒退出，未作为通过 |
 | #7894 | 恢复旧的整轮 2 分钟限制后，两个分别耗时 3 分钟的插件账号都返回 deadline exceeded | 六项测试通过 race，整合代码同六项通过 race，覆盖两个账号完成、第 4 分钟取消、context 值及更短调用方截止时间、内置 2 分钟限制和实际本地插件宿主，不调用真实账号 |
+| #7574 | 旧生产代码对 Volta 管理的 Claude 入口返回未知安装来源 | 本地假 Volta 命令覆盖三个工具的实际识别、CLI 数据和更新执行路径，以及普通 npm、fetched/project/异常元数据，整合代码与托管版本两项邻接测试共三项通过，Windows/Linux agent vet 通过，没有运行真实工具更新 |
 
 说明：#7777 提交正文中边界红测的 “on the base” 指作者补丁上的边界版本，原始主干复现与作者补丁补强是两个独立失败记录
 
