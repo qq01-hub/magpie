@@ -1,0 +1,29 @@
+{
+  "base": "e87965dcd302f62f9c11ba1c622d1cdab0bdc4d8",
+  "code_head": "4728b2a2a82baaa02b562f5e9d09edb4787d9209",
+  "total_pass": 107,
+  "top_level_pass": 27,
+  "fail": 0,
+  "skip": 0,
+  "packages": [
+    {
+      "Package": "github.com/yetone/magpie/internal/agent",
+      "Elapsed": 6.088
+    },
+    {
+      "Package": "github.com/yetone/magpie/internal/provider",
+      "Elapsed": 2.341
+    },
+    {
+      "Package": "github.com/yetone/magpie/internal/gateway",
+      "Elapsed": 21.08
+    }
+  ],
+  "windows_vet": "pass",
+  "linux_vet": "pass",
+  "windows_build": "pass",
+  "linux_build": "pass",
+  "formatted_go_files": 16,
+  "full_suite": "not run",
+  "real_vendor_requests": "not run"
+}
