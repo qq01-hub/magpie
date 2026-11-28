@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
@@ -149,7 +150,7 @@ func TestCopilotOpaqueOnlyItsOwn(t *testing.T) {
 	if got := opaqueOn(sent[len(sent)-1]); got != "the client's own" {
 		t.Errorf("the client's own opaque was replaced: %q", got)
 	}
-	postOpaque(t, s, "/v1/chat/completions", chatSecondTurn("copilot/gemini-4-carbon", "", true))
+	postOpaque(t, s, "/v1/chat/completions", chatSecondTurn("copilot/gpt-6.1-sol", "", true))
 	if got := sent[len(sent)-1]; strings.Contains(got, "reasoning_opaque") {
 		t.Errorf("another model was sent this one's opaque:\n%s", got)
 	}
@@ -163,6 +164,98 @@ func TestCopilotOpaqueOnlyItsOwn(t *testing.T) {
 	if len(sent) != before+1 || strings.Contains(sent[before], "reasoning_opaque") {
 		t.Errorf("a call with nothing kept got an opaque:\n%s", sent[before])
 	}
+}
+
+// Copilot's Gemini 4 tiers accept each other's reasoning_opaque on the same
+// account, even when one request names the tier with the copilot/ prefix.
+func TestCopilotOpaqueSharedWithinGemini4Family(t *testing.T) {
+	callID := "call_MHxMT2VvRVZXajFQQUtHbGY5cGY"
+	var sent []string
+	copilotOpaqueUp(t, &sent)
+	postOpaque(t, New(), "/v1/chat/completions", `{"model":"copilot/gemini-4-hydrogen","stream":true,"tools":`+opaqueTools+`,"messages":[{"role":"user","content":"weather in Paris and Tokyo?"}]}`)
+	postOpaque(t, New(), "/v1/chat/completions", chatSecondTurn("gemini-4-carbon", "", true))
+	if len(sent) != 2 {
+		t.Fatalf("Copilot was asked %d times", len(sent))
+	}
+	if got := opaqueOn(sent[1]); got != opaqueSeal {
+		t.Fatalf("the same-account Gemini 4 tier switch lost its opaque (%q):\n%s", got, sent[1])
+	}
+	if got := keptOpaque("echo", "copilot/gemini-4-carbon", callID); got != opaqueSeal {
+		t.Fatalf("the Gemini 4 opaque was not shared by its family: %q", got)
+	}
+	if got := keptOpaque("other", "copilot/gemini-4-carbon", callID); got != "" {
+		t.Fatalf("the Gemini 4 opaque crossed accounts: %q", got)
+	}
+	if got := keptOpaque("echo", "copilot/gemini-3.8-flash", callID); got != "" {
+		t.Fatalf("Gemini 4 opaque leaked into Gemini 3.8: %q", got)
+	}
+	if got := keptOpaque("echo", "copilot/gpt-6.1-sol", callID); got != "" {
+		t.Fatalf("Gemini 4 opaque leaked into a non-Gemini model: %q", got)
+	}
+}
+
+// Files written before the family scope was introduced keep their exact
+// model key, but a later tier request can still read that opaque.
+func TestCopilotOpaqueGemini4FamilyReadsLegacyModelKey(t *testing.T) {
+	fresh(t)
+	user, oldModel, newModel, callID := "u", "copilot/gemini-4-hydrogen", "copilot/gemini-4-neon", "c1"
+	path := filepath.Join(copilotOpaqueDir(), opaqueKey(user, oldModel, callID))
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte("legacy-seal"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if got := keptOpaque(user, newModel, callID); got != "legacy-seal" {
+		t.Fatalf("cross-tier read got %q, want legacy opaque", got)
+	}
+}
+
+// For one call id, prefer a shared opaque, then this model's legacy opaque,
+// then an opaque left by another Gemini 4 tier.
+func TestCopilotOpaqueGemini4FamilyReadPriority(t *testing.T) {
+	fresh(t)
+	user, model, id := "u", "copilot/gemini-4-neon", "c1"
+	dir := copilotOpaqueDir()
+	for _, x := range []struct{ model, opaque string }{
+		{"copilot/gemini-4-argon", "sibling-seal"},
+		{model, "requested-seal"},
+	} {
+		path := filepath.Join(dir, opaqueKey(user, x.model, id))
+		if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, []byte(x.opaque), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if got := keptOpaque(user, model, id); got != "requested-seal" {
+		t.Fatalf("read got %q, want requested model's opaque", got)
+	}
+	keepOpaque(user, "gemini-4-carbon", id, "shared-seal")
+	if got := keptOpaque(user, model, id); got != "shared-seal" {
+		t.Fatalf("read got %q, want shared opaque", got)
+	}
+	t.Run("unprefixed requested alias precedes sibling", func(t *testing.T) {
+		fresh(t)
+		user, model, id := "u", "gemini-4-neon", "c1"
+		dir := copilotOpaqueDir()
+		for _, x := range []struct{ model, opaque string }{
+			{"gemini-4-argon", "sibling-seal"},
+			{"copilot/gemini-4-neon", "requested-seal"},
+		} {
+			path := filepath.Join(dir, opaqueKey(user, x.model, id))
+			if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(path, []byte(x.opaque), 0o600); err != nil {
+				t.Fatal(err)
+			}
+		}
+		if got := keptOpaque(user, model, id); got != "requested-seal" {
+			t.Fatalf("read got %q, want requested model alias opaque", got)
+		}
+	})
 }
 
 // A client of another protocol (Claude Code on Messages, Codex on

@@ -9,6 +9,8 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"slices"
+	"strings"
 	"sync"
 	"time"
 
@@ -32,9 +34,10 @@ import (
 // magpie keeps it by the tool call it came with, one file per account,
 // model and call id under its folder (copilotOpaqueDir), and puts it back
 // on the assistant message that carries that call when it goes to the
-// same account's same model again. A message with reasoning_opaque of its
-// own keeps it. A reply with no tool call has nothing to know its message
-// by and is not kept.
+// same account and compatible model again. Copilot's Gemini 4 tiers share
+// their thought signatures; every other model stays scoped to its exact id.
+// A message with reasoning_opaque of its own keeps it. A reply with no tool
+// call has nothing to know its message by and is not kept.
 const (
 	opaqueKeyBytes = 16
 	// opaqueKeep: a conversation not taken up again in this long goes on
@@ -55,10 +58,62 @@ var (
 	opaquePruneTick = time.Hour
 )
 
-// opaqueKey names the file of call id's opaque from user's model.
+// opaqueKey names the legacy exact-model file of call id's opaque.
 func opaqueKey(user, model, id string) string {
 	h := sha256.Sum256([]byte(user + "\x00" + model + "\x00" + id))
 	return base64.RawURLEncoding.EncodeToString(h[:opaqueKeyBytes])
+}
+
+var copilotGemini4Models = [...]string{
+	"gemini-4-argon", "gemini-4-carbon", "gemini-4-hydrogen", "gemini-4-neon",
+}
+
+func copilotGemini4Family(model string) bool {
+	model = strings.TrimPrefix(model, "copilot/")
+	return slices.Contains(copilotGemini4Models[:], model)
+}
+
+// opaqueScopedKey shares current Copilot Gemini 4 tiers. Every other model
+// retains the exact-model key used before family sharing.
+func opaqueScopedKey(user, model, id string) string {
+	if copilotGemini4Family(model) {
+		return opaqueKey(user, "family:gemini-4", id)
+	}
+	return opaqueKey(user, model, id)
+}
+
+// opaqueReadKeys prefers the shared key, then this model's legacy spellings,
+// then legacy keys from the other Gemini 4 tiers.
+func opaqueReadKeys(user, model, id string) []string {
+	keys := []string{opaqueScopedKey(user, model, id)}
+	if !copilotGemini4Family(model) {
+		return keys
+	}
+	seen := map[string]bool{keys[0]: true}
+	baseModel := strings.TrimPrefix(model, "copilot/")
+	legacyModels := []string{model}
+	if baseModel == model {
+		legacyModels = append(legacyModels, "copilot/"+baseModel)
+	} else {
+		legacyModels = append(legacyModels, baseModel)
+	}
+	for _, legacyModel := range legacyModels {
+		key := opaqueKey(user, legacyModel, id)
+		if !seen[key] {
+			keys = append(keys, key)
+			seen[key] = true
+		}
+	}
+	for _, m := range copilotGemini4Models {
+		for _, legacyModel := range []string{m, "copilot/" + m} {
+			key := opaqueKey(user, legacyModel, id)
+			if !seen[key] {
+				keys = append(keys, key)
+				seen[key] = true
+			}
+		}
+	}
+	return keys
 }
 
 // keepOpaque stores opaque for call id of user's model, written whole
@@ -68,7 +123,7 @@ func keepOpaque(user, model, id, opaque string) {
 		return
 	}
 	dir := copilotOpaqueDir()
-	path := filepath.Join(dir, opaqueKey(user, model, id))
+	path := filepath.Join(dir, opaqueScopedKey(user, model, id))
 	if b, err := os.ReadFile(path); err == nil && string(b) == opaque {
 		return
 	}
@@ -94,14 +149,17 @@ func keptOpaque(user, model, id string) string {
 	if id == "" {
 		return ""
 	}
-	path := filepath.Join(copilotOpaqueDir(), opaqueKey(user, model, id))
-	b, err := os.ReadFile(path)
-	if err != nil || len(b) == 0 {
-		return ""
+	dir := copilotOpaqueDir()
+	for _, key := range opaqueReadKeys(user, model, id) {
+		path := filepath.Join(dir, key)
+		b, err := os.ReadFile(path)
+		if err == nil && len(b) > 0 {
+			now := time.Now()
+			os.Chtimes(path, now, now)
+			return string(b)
+		}
 	}
-	now := time.Now()
-	os.Chtimes(path, now, now)
-	return string(b)
+	return ""
 }
 
 // pruneOpaques removes, at most once per opaquePruneTick, the opaques not
