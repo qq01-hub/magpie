@@ -476,6 +476,17 @@ The id stays the upstream's, and its name isn't borrowed. A price never is:
 usage report sends a model id only when models.dev knows it as written
 (`KnowsAsWritten`).
 
+Synthetic's own host (`api.synthetic.new`) lists its levels in
+`reasoning_parameters.efforts`, its reasoning switch in `supported_features`,
+and its reply limit in `max_output_length`. These take precedence over the
+older compatible fields when usable, and missing or malformed values leave
+those fields and the catalog fallback usable. Its `infinite:` aliases keep
+their own ids and have `Infinite` in their names, since that service mode can
+resolve to the same model and display name as regular inference
+([`synthetic.go`](../../internal/catalog/synthetic.go),
+`TestSyntheticFetchedModelsKeepTheirCapabilitiesAndIdentity`). Other hosts'
+names and metadata keep their existing interpretation.
+
 A model no rule can read (a relay's rename, `ds.4.1(WB)` for
 `deepseek-v4.1-flash`, pinmmis on X) takes its specs from the model the
 user said it is the same as: the editor's Same as, settings'

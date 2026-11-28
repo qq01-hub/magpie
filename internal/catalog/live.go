@@ -1152,6 +1152,9 @@ func fetchPage(ctx context.Context, url, key string, anthropic bool, headers map
 			m.Output = int(n)
 		}
 		m.Efforts = levelsOf(r.Levels)
+		if syntheticAPI(url) {
+			syntheticFacts(&m, r)
+		}
 		if r.WebSearch == "native" || r.WebSearch == "magpie" {
 			m.WebSearch = r.WebSearch
 		}
@@ -1325,6 +1328,11 @@ type liveModel struct {
 	ThinkEfforts any `json:"think_efforts"`
 	Reasoning    any `json:"reasoning"`
 	Tools        any `json:"tools"`
+	// Synthetic's own list names its reasoning levels and reply limit
+	// differently; any, so an odd value leaves the older fields usable.
+	ReasoningParameters any `json:"reasoning_parameters"`
+	SupportedFeatures   any `json:"supported_features"`
+	OutputLength        any `json:"max_output_length"`
 	// what OpenCode Go's list (/zen/go/v1/models) says of a model on its
 	// plans: monthly_usage, the requests each plan's month holds, is null
 	// on a model its windows don't count, one of its free ones (beam-free,
@@ -1508,7 +1516,10 @@ func Decorate(live []Model, known []Model) []Model {
 			if m.Name == "" || m.Name == m.ID {
 				fallback[i] = k.Name
 			}
-			m.Efforts, m.Released, m.Provider = k.Efforts, k.Released, k.Provider
+			if len(m.Efforts) == 0 {
+				m.Efforts = k.Efforts
+			}
+			m.Released, m.Provider = k.Released, k.Provider
 			m.Reasoning = m.Reasoning || k.Reasoning
 			if m.ImageInput == nil {
 				m.ImageInput = k.ImageInput

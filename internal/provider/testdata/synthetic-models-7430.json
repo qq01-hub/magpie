@@ -1,0 +1,28 @@
+{
+  "data": [
+    {
+      "id": "infinite:small:vision",
+      "display_name": "DeepSeek V4.1 Flash 10/17",
+      "hugging_face_id": "deepseek-ai/DeepSeek-V4.1-Flash-1017",
+      "reasoning_parameters": {
+        "efforts": ["none", "low", "high", "xhigh", "max"]
+      },
+      "supported_features": ["tools", "json_mode", "structured_outputs", "reasoning"],
+      "input_modalities": ["text", "image"],
+      "output_modalities": ["text"],
+      "max_output_length": 65536
+    },
+    {
+      "id": "hf:deepseek-ai/DeepSeek-V4.1-Flash-1017",
+      "display_name": "DeepSeek V4.1 Flash 10/17",
+      "hugging_face_id": "deepseek-ai/DeepSeek-V4.1-Flash-1017",
+      "reasoning_parameters": {
+        "efforts": ["none", "low", "high", "xhigh", "max"]
+      },
+      "supported_features": ["tools", "json_mode", "structured_outputs", "reasoning"],
+      "input_modalities": ["text", "image"],
+      "output_modalities": ["text"],
+      "max_output_length": 65536
+    }
+  ]
+}
