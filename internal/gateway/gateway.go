@@ -5002,7 +5002,7 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request, from provider.Pro
 			break
 		}
 		hw.settle()
-		if !hw.passing && !hw.refused && hw.code() >= 400 &&
+		if !hw.passing && !hw.refused && hw.code() >= 500 && busyStatus(hw.code()) &&
 			(pluginEmptyReply(hw.held.Bytes()) || pluginEmptyReply([]byte(hw.failMsg))) {
 			// A plugin's structured empty reply is the core's emptyReply:
 			// asked again once, not with a busy vendor's budget (#7072).
@@ -10559,7 +10559,27 @@ const emptyReply = "an empty reply (the model answered nothing; try again)"
 // words the plugin wraps it in. body is the reply as it came, JSON or an
 // in-stream error frame.
 func pluginEmptyReply(body []byte) bool {
-	return bodyHas(body, `"kind":"empty"`)
+	isEmpty := func(data []byte) bool {
+		var reply struct {
+			Error struct {
+				Diagnostics struct {
+					Kind string `json:"kind"`
+				} `json:"diagnostics"`
+			} `json:"error"`
+		}
+		return json.Unmarshal(data, &reply) == nil && reply.Error.Diagnostics.Kind == "empty"
+	}
+	if isEmpty(body) {
+		return true
+	}
+	empty := false
+	_ = readSSE(bytes.NewReader(body), func(_, data string) error {
+		if isEmpty([]byte(data)) {
+			empty = true
+		}
+		return nil
+	})
+	return empty
 }
 
 // emptyReplyFailed is what p's reply that said nothing fails with: the
