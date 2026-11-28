@@ -3,6 +3,7 @@ package gateway
 import (
 	"bytes"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -13,6 +14,7 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+	"unicode/utf8"
 
 	"github.com/klauspost/compress/zstd"
 	"github.com/yetone/magpie/internal/provider"
@@ -238,6 +240,20 @@ func TestOversizedAgyRemoteCompactAndContinue(t *testing.T) {
 	code, _ = codexPost(t, `{"model":"agy-cli/m1","stream":true,"input":[{"type":"compaction","encrypted_content":"`+sealed+`"},{"role":"user","content":"continue"}]}`)
 	if code != 200 || !bytes.Contains(f.got, []byte("SUMMARY")) {
 		t.Fatalf("continuation status %d", code)
+	}
+}
+
+func TestAgyCompactToolOutputKeepsUTF8Boundaries(t *testing.T) {
+	output := strings.Repeat("界", 150_000)
+	body := []byte(`{"input":[{"type":"function_call_output","output":"` + output + `"},{"type":"compaction_trigger"}]}`)
+	got := compactLargeAgyHistory(body, int64(len(body)-1))
+	if len(got) >= len(body) || !json.Valid(got) {
+		t.Fatalf("output was not compacted as valid JSON: %d bytes", len(got))
+	}
+	text := getIn(got, "input.0.output").String()
+	if !utf8.ValidString(text) || strings.ContainsRune(text, utf8.RuneError) ||
+		!strings.HasPrefix(text, "界界") || !strings.HasSuffix(text, "界界") || !strings.Contains(text, "\n…\n") {
+		t.Fatalf("truncated tool output lost UTF-8 content: prefix %q, suffix %q", text[:min(len(text), 16)], text[max(0, len(text)-16):])
 	}
 }
 

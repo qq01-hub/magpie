@@ -404,7 +404,7 @@ func compactLargeAgyHistory(body []byte, limit int64) []byte {
 		if field == "output" && v.Type == gjson.String && len(v.Raw) > plainCompactMax {
 			text := v.String()
 			if len(text) > 4000 {
-				b, _ := json.Marshal(text[:2000] + "\n…\n" + text[len(text)-2000:])
+				b, _ := json.Marshal(compactAgyToolOutput(text))
 				add(v, string(b))
 			}
 		}
@@ -429,6 +429,21 @@ func compactLargeAgyHistory(body []byte, limit int64) []byte {
 		last = e.end
 	}
 	return append(out, body[last:]...)
+}
+
+// compactAgyToolOutput keeps each end of a long tool result without cutting
+// a UTF-8 character in half.
+func compactAgyToolOutput(text string) string {
+	const edge = 2000
+	headEnd := edge
+	for headEnd > 0 && !utf8.RuneStart(text[headEnd]) {
+		headEnd--
+	}
+	tailStart := len(text) - edge
+	for tailStart < len(text) && !utf8.RuneStart(text[tailStart]) {
+		tailStart++
+	}
+	return text[:headEnd] + "\n…\n" + text[tailStart:]
 }
 
 // sealedTaskError is what a subagent is told whose task its lead sealed
