@@ -199,12 +199,12 @@ func TestCLIMissingSharedFolders(t *testing.T) {
 		// cache and runs that: no claude on PATH, none of the installer's
 		// folders, and its settings are read all the same
 		{"claude", ".claude", func(t *testing.T, home, _ string) {
-			agentHostCacheT(t, home, "claude", "0.3.281", "linux-x64")
+			agentHostCacheT(t, home, "claude", "0.3.281", hostSDKPlatformT(t))
 		}, false},
 		// a download that never finished leaves the folder but no .complete,
 		// which the chat itself reads as not installed
 		{"claude", ".claude", func(t *testing.T, home, _ string) {
-			mkdirT(t, filepath.Join(agentHostCacheDir(home, "claude", "0.3.281", "linux-x64")))
+			mkdirT(t, filepath.Join(agentHostCacheDir(home, "claude", "0.3.281", hostSDKPlatformT(t))))
 		}, true},
 		{"claude", ".claude", func(t *testing.T, home, _ string) {
 			mkdirT(t, jetBrainsDirFor(home))
@@ -225,7 +225,7 @@ func TestCLIMissingSharedFolders(t *testing.T) {
 			mkdirT(t, filepath.Join(home, ".codex", "packages", "standalone"))
 		}, false},
 		{"codex", ".codex", func(t *testing.T, home, _ string) {
-			agentHostCacheT(t, home, "codex", "0.157.0", "linux-x64")
+			agentHostCacheT(t, home, "codex", "0.157.0", hostSDKPlatformT(t))
 		}, false},
 		{"codex", ".codex", func(t *testing.T, home, _ string) {
 			mkdirT(t, zedAgentsDirFor(home))
