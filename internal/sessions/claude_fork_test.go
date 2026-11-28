@@ -4,6 +4,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 // A fork subagent's file opens with a fork-context-ref line, then a copy of
@@ -31,5 +32,18 @@ func TestClaudeForkSubagentCountsParentReplyOnce(t *testing.T) {
 	}
 	if got, _ := usageOn(statsAt(0, statsNow), "2026-09-21", "/work/night"); got != want {
 		t.Fatalf("stats: %+v, want %+v", got, want)
+	}
+	// Per-call aggregation already deduplicates message ids across files
+	// independently of the session-summary reader
+	var tokens Tokens
+	count := 0
+	for _, c := range AgentCalls(time.Time{}, "claude") {
+		if c.Session == id {
+			tokens.add(c.Tokens)
+			count++
+		}
+	}
+	if count != 2 || tokens != want {
+		t.Fatalf("calls: %d with %+v, want the parent and fork's two calls with %+v", count, tokens, want)
 	}
 }
