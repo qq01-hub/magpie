@@ -4,7 +4,7 @@
 
 账号为 [qq01-hub](https://github.com/qq01-hub)，整合分支为 [fix/unanswered-issues-20261128](https://github.com/qq01-hub/magpie/tree/fix/unanswered-issues-20261128)
 
-以下是已经完成并审核的 14 项，本轮其余问题仍在独立工作树处理
+以下是已经完成并审核的 15 项，本轮其余问题仍在独立工作树处理
 
 | Issue | 修复与边界 | 独立分支 | 审核 HEAD |
 | --- | --- | --- | --- |
@@ -22,6 +22,7 @@
 | [#7969](https://github.com/yetone/magpie/issues/7969) | 从插件自身聚合列表发现朗读及转写模型，支持第二账号与本地模型别名，遵守禁用和供应商顺序，不把普通音频聊天模型当成语音接口 | [fix/7969-plugin-speech-discovery](https://github.com/qq01-hub/magpie/tree/fix/7969-plugin-speech-discovery) | `cc7d131bd5c0b547f1987e0ce1cb0dcd5a138717` |
 | [#7816](https://github.com/yetone/magpie/issues/7816) | 移除插件账号后将其专有模型移出已选列表，保留手动模型，旧编辑窗口保存不会加回，账号恢复后重新列出 | [fix/7816-plugin-delisted-picks](https://github.com/qq01-hub/magpie/tree/fix/7816-plugin-delisted-picks) | `07c609ae5da16b0892e48aa5b3485bad9e78a4b8` |
 | [#7938](https://github.com/yetone/magpie/issues/7938) | AGY 本地摘要请求超限时精简历史图片和大工具输出，UTF-8 字符保持完整，普通请求及原生压缩保持原样，仍超限返回 413 | [fix/7938-oversized-agy-compaction](https://github.com/qq01-hub/magpie/tree/fix/7938-oversized-agy-compaction) | `59c12f9cca2ea0ee2432587e6dca1005079a6093` |
+| [#7988](https://github.com/yetone/magpie/issues/7988) | 技能 frontmatter 解析失败时丢弃不完整字段，显示文件夹名及本地化警告，区分来源显示名和安全安装名 | [fix/7988-skill-frontmatter-parse](https://github.com/qq01-hub/magpie/tree/fix/7988-skill-frontmatter-parse) | `5af7e9a49d11ed3bb6511a5aa07f77f4fb42a259` |
 
 ## 实际失败复现与验证
 
@@ -43,6 +44,7 @@
 | #7969 | 最终 WorkBuddy 模型 fixture 在原生产代码上四项失败：audio-only TTS 被聊天列表中的候补取代，供应商次序后的 TTS 选择错误，第二账号专有模型和本地别名缺失 | 七项测试及相同七项 race 全部通过，0 跳过，覆盖禁用、Select none、用户选择、普通音频聊天负例，真实 Bun 插件宿主；转写在此基线 fixture 已通过，不虚报为另一条红测 |
 | #7816 | 撤回后台 relisted 回调后移除账号仍留下两项专有模型，撤回 Fetch models 的插件条件后 dropped 为空 | 两项实际 Bun 插件回归及 race 通过，另两项后台重列与恢复测试通过 race，整合代码同四项通过，未复测原作者的真实 CodeZ 账号 |
 | #7938 | 真实超过 512 MiB 的本地 HTTP 请求在旧 handler 返回 413、上游零字节；作者补丁的工具输出截断会切碎 UTF-8 字符 | 大请求压缩及继续对话、UTF-8 边界、普通或仍超限输入、原生压缩四项均通过，整合代码同四项通过，运行未传 `-short`，未使用真实 AGY 账号 |
+| #7988 | 旧生产代码的 Library 和 Agent 自有技能视图丢失 YAML 解析错误 | 两项 Go 回归通过，Chromium/WebKit 五语言共 12 项通过，覆盖来源安装、合法邻居、窄屏和 HTML 样式错误值，整合分支同组通过 |
 
 说明：#7777 提交正文中边界红测的 “on the base” 指作者补丁上的边界版本，原始主干复现与作者补丁补强是两个独立失败记录
 
@@ -68,6 +70,10 @@ go test -tags nogui -run '^Test(GeminiThoughtsOnlyWhenIncluded|GeminiThoughtsOnl
 尚未完成本轮完整 `go test -tags nogui ./...`，以上是定向回归、静态检查和构建结果，不能解释为整仓测试全部通过
 
 额外完整 provider 包测试遇到 `TestRestartSwitchedCodexAppReal` 失败：helper 无输出后测试访问空切片，该失败在本轮未改动的固定生产基线上也已实际复现，相关 Claude 定向测试通过
+
+#7988 额外界面邻接检查没有全部通过：原样 `skill-manual.test.cjs` 的空 POST 断言被 `/api/update/using` 心跳触发，固定基线同样失败；临时仅过滤测试心跳后 22 项通过，随后恢复原测试文件，没有把过滤算入提交结果
+
+`found-skill-pick-remove.test.cjs` 在修复树为 13 通过、9 失败（含父测试），失败涉及 reach/press 辅助流程；固定基线复现了两个引擎下日语、德语 420px 的四个子测试失败，另外三个 WebKit 子测试失败在该次基线运行没有复现，不能把它们一概认定为基线问题；新增 frontmatter 测试与实际改动路径仍为两引擎五语言全通过
 
 本机未提供可运行的 Linux/macOS 环境，跨平台 vet/build 不代表对应系统的运行测试，未调用真实付费模型、真实 macOS 钥匙串或修改现有 agent 配置，供应商相关行为使用隔离的本地 HTTP 服务和 fixture 验证
 
