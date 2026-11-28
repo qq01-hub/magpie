@@ -167,6 +167,9 @@ func mcpView(res *library.Result) (mcpJSON, error) {
 	p := lastProblems.p
 	lastProblems.Unlock()
 	v, err := library.ReadMCP(p)
+	if v != nil {
+		libraryPluginIcons(v.Servers)
+	}
 	return mcpJSON{Part: "mcp", MCP: v, Result: res, Problems: p}, err
 }
 
