@@ -2,9 +2,131 @@ package library
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
+	"runtime"
+	"strings"
 	"testing"
+	"time"
 )
+
+func TestRegroupGitKeepsRefCase(t *testing.T) {
+	sandbox(t)
+	addr, commit := gitRepo(t, map[string]string{
+		"skills/upper/SKILL.md": "---\nname: upper\ndescription: Upper\n---\nCurrent upper\n",
+	})
+	bare := strings.TrimPrefix(addr, "file://")
+	if runtime.GOOS == "windows" && len(bare) > 2 && bare[0] == '/' && bare[2] == ':' {
+		bare = bare[1:]
+	}
+	run := func(args ...string) {
+		t.Helper()
+		if out, err := exec.Command(realGit, append([]string{"--git-dir", filepath.FromSlash(bare)}, args...)...).CombinedOutput(); err != nil {
+			t.Fatalf("git %v: %v\n%s", args, err, out)
+		}
+	}
+	// Different namespaces let Windows serve these case-sensitive refs too
+	run("tag", "Release", "refs/heads/main")
+	commit(map[string]string{
+		"skills/upper":          gitRemoved,
+		"skills/lower/SKILL.md": "---\nname: lower\ndescription: Lower\n---\nCurrent lower\n",
+	})
+	run("branch", "release", "refs/heads/main")
+	for _, name := range []string{"upper", "lower"} {
+		write(t, filepath.Join(skillDir(name), "SKILL.md"), "---\nname: "+name+"\ndescription: Old\n---\nOlder copy\n")
+	}
+	ok(t)(change(func(l *Library) error {
+		l.Skills = append(l.Skills,
+			&Skill{Name: "upper-source", Source: &Source{Kind: "git", Repo: addr, Ref: "Release"}},
+			&Skill{Name: "lower-source", Source: &Source{Kind: "git", Repo: addr, Ref: "release"}},
+			&Skill{Name: "upper"}, &Skill{Name: "lower"})
+		return nil
+	}))
+	if n, err := RegroupSkills(); err != nil || n != 2 {
+		t.Fatalf("regroup both case-sensitive refs: %d %v, want two skills grouped", n, err)
+	}
+	for _, name := range []string{"upper", "lower"} {
+		if s := mustLoad(t).skill(name); s.From != addr {
+			t.Errorf("%s's ref was not fetched: %+v", name, s)
+		}
+	}
+}
+
+func TestRegroupGitRejectsStaleFrom(t *testing.T) {
+	for _, from := range []string{"canonical", "url"} {
+		for _, linkedCheckout := range []bool{false, true} {
+			t.Run(from+"/checkout="+map[bool]string{false: "no", true: "yes"}[linkedCheckout], func(t *testing.T) {
+				h := sandbox(t)
+				oldAddr, _ := gitRepo(t, map[string]string{
+					"skills/known/SKILL.md":    "---\nname: known\ndescription: Old source\n---\nOld\n",
+					"skills/stranger/SKILL.md": "---\nname: stranger\ndescription: Old source\n---\nOld\n",
+				})
+				const oldRemote = "https://git.example.com/old/skills.git"
+				const newRemote = "https://git.example.com/current/skills.git"
+				config := "[url \"" + oldAddr + "\"]\n\tinsteadOf = " + oldRemote + "\n"
+				dir := filepath.Join(h, ".agents", "skills", "known")
+				if linkedCheckout {
+					newAddr, _ := gitRepo(t, map[string]string{
+						"skills/known/SKILL.md":   "---\nname: known\ndescription: Current checkout\n---\nNew\n",
+						"skills/current/SKILL.md": "---\nname: current\ndescription: Current\n---\nNew\n",
+					})
+					config += "[url \"" + newAddr + "\"]\n\tinsteadOf = " + newRemote + "\n"
+					clone := filepath.Join(h, ".agents", "skills", "checkout")
+					if out, err := exec.Command(realGit, "clone", "-q", newAddr, clone).CombinedOutput(); err != nil {
+						t.Fatal(err, string(out))
+					}
+					if out, err := exec.Command(realGit, "-C", clone, "remote", "set-url", "origin", newRemote).CombinedOutput(); err != nil {
+						t.Fatal(err, string(out))
+					}
+					dir = filepath.Join(clone, "skills", "known")
+				} else {
+					skill(t, dir, "known", "New unrelated skill")
+				}
+				write(t, os.Getenv("GIT_CONFIG_GLOBAL"), config)
+				installed := time.Now().Add(-2 * time.Hour).UTC().Format(time.RFC3339Nano)
+				write(t, filepath.Join(h, ".agents", ".skill-lock.json"), `{"skills":{"known":{"sourceType":"git","sourceUrl":"`+oldRemote+`","installedAt":"`+installed+`"}}}`)
+				if err := os.MkdirAll(filepath.Dir(skillDir("known")), 0o755); err != nil {
+					t.Fatal(err)
+				}
+				if err := dirLink(dir, skillDir("known")); err != nil {
+					t.Fatal(err)
+				}
+				for _, name := range []string{"stranger", "current"} {
+					write(t, filepath.Join(skillDir(name), "SKILL.md"), "---\nname: "+name+"\ndescription: Mine\n---\nUntraced old copy\n")
+				}
+				oldFrom := "git.example.com/old/skills"
+				if from == "url" {
+					oldFrom = oldRemote
+				}
+				ok(t)(change(func(l *Library) error {
+					l.Skills = append(l.Skills, &Skill{Name: "known", Source: &Source{Kind: "folder", Dir: dir}, From: oldFrom}, &Skill{Name: "stranger"}, &Skill{Name: "current"})
+					return nil
+				}))
+				wantCount, wantRepo := 0, ""
+				if linkedCheckout {
+					wantCount, wantRepo = 2, "git.example.com/current/skills"
+				}
+				if got := repoIn(t)["known"]; got != wantRepo {
+					t.Errorf("known traced as %q, want %q", got, wantRepo)
+				}
+				if n, err := RegroupSkills(); err != nil || n != wantCount {
+					t.Errorf("regroup: %d %v, want %d", n, err, wantCount)
+				}
+				l := mustLoad(t)
+				if s := l.skill("stranger"); s.From != "" || s.Source != nil {
+					t.Errorf("stale source claimed another untraced skill: %+v", s)
+				}
+				wantFrom := ""
+				if linkedCheckout {
+					wantFrom = newRemote
+				}
+				if got := l.skill("current").From; got != wantFrom {
+					t.Errorf("current checkout group: %q, want %q", got, wantFrom)
+				}
+			})
+		}
+	}
+}
 
 func TestGitProbeNotesAndBindsTheSameCopy(t *testing.T) {
 	sandbox(t)
@@ -25,7 +147,7 @@ func TestGitProbeNotesAndBindsTheSameCopy(t *testing.T) {
 }
 
 func TestRegroupGitTracedFromLockOrCheckout(t *testing.T) {
-	for _, from := range []string{"lock", "checkout"} {
+	for _, from := range []string{"lock", "checkout", "from"} {
 		t.Run(from, func(t *testing.T) {
 			h := sandbox(t)
 			addr, _ := gitRepo(t, map[string]string{
@@ -38,7 +160,7 @@ func TestRegroupGitTracedFromLockOrCheckout(t *testing.T) {
 			if from == "lock" {
 				dir = filepath.Join(h, ".agents", "skills", "known")
 				write(t, filepath.Join(h, ".agents", ".skill-lock.json"), `{"skills":{"known":{"sourceType":"git","sourceUrl":"`+remote+`"}}}`)
-			} else {
+			} else if from == "checkout" {
 				checkout(t, filepath.Dir(dir), "[remote \"origin\"]\n\turl = "+remote+"\n")
 				write(t, filepath.Join(h, ".agents", ".skill-lock.json"), `{"skills":{"known":{"sourceType":"git","sourceUrl":"https://git.example.com/unrelated/skills.git"}}}`)
 			}
@@ -51,7 +173,11 @@ func TestRegroupGitTracedFromLockOrCheckout(t *testing.T) {
 			}
 			write(t, filepath.Join(skillDir("older"), "SKILL.md"), "---\nname: older\ndescription: Old\n---\nOlder\n")
 			ok(t)(change(func(l *Library) error {
-				l.Skills = append(l.Skills, &Skill{Name: "known", Source: &Source{Kind: "folder", Dir: dir}}, &Skill{Name: "older"})
+				known := &Skill{Name: "known", Source: &Source{Kind: "folder", Dir: dir}}
+				if from == "from" {
+					known.From = remote
+				}
+				l.Skills = append(l.Skills, known, &Skill{Name: "older"})
 				return nil
 			}))
 			if n, err := RegroupSkills(); err != nil || n != 1 {

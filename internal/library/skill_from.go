@@ -77,7 +77,7 @@ func (tr *tracer) staleFrom(s *Skill) bool {
 		return false
 	}
 	e, ok := tr.lock()[filepath.Base(dir)]
-	return ok && (e.repo == s.From || e.repo == fromKey(s.From)) && tr.lockRepo(filepath.Base(dir), dir) == ""
+	return ok && tracedTo(e.repo, Source{Kind: "git", Repo: fromKey(s.From)}) && tr.lockRepo(filepath.Base(dir), dir) == ""
 }
 
 // tracer reads what tracing needs once for a whole page.
@@ -468,9 +468,9 @@ func RegroupSkills() (int, error) {
 			// A site's kit (docs.example.com/kit) reads like owner/repo,
 			// but a GitHub owner has no dot
 			src = Source{Kind: "github", Repo: r}
-		case strings.Contains(s.From, "://") || scpRemote.MatchString(s.From):
+		case !tr.staleFrom(s) && (strings.Contains(s.From, "://") || scpRemote.MatchString(s.From)):
 			candidate, ok, parseErr := gitSource(s.From)
-			if !ok || parseErr != nil || strings.Contains(s.From, "/.well-known/") {
+			if !ok || parseErr != nil || strings.Contains(s.From, "/.well-known/") || !tracedTo(r, candidate) {
 				continue
 			}
 			src = candidate
@@ -486,7 +486,7 @@ func RegroupSkills() (int, error) {
 			continue
 		}
 		src.Path = ""
-		key := strings.ToLower(repoKey(src.Repo, src.Ref))
+		key := repoKey(strings.ToLower(src.Repo), src.Ref)
 		if seen[key] {
 			continue
 		}
