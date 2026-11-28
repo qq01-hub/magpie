@@ -41,6 +41,8 @@ The gateway can't import the library (the library imports the gateway), so the g
 4. An error comes back as `isError` text naming the server: `The MCP server S couldn't run T: <why>`, where why is how it exited and its last line on stderr, a sign-in it needs, its command not found, or `it didn't answer in 50s` (`hubLate`: a server with its own call timeout names that value and where it is set).
 5. Each call is a row of the request log (`serveMCP`'s `callMCPTool`): the router's tool name (for `call_tool`, the tool it ran), the Library server as its host, the agent of the path, how long it took and its error, never its arguments. It counts in no total ([Calls to magpie's own MCP tools](gateway-sessions.md#calls-to-magpies-own-mcp-tools)).
 
+Remote MCP sign-in uses `mcpauth` metadata discovery. When an authorization-server issuer has a path, discovery tries the RFC 8414 path-inserted OAuth and OpenID URLs, the issuer's OpenID metadata URL, then the issuer path-appended `/.well-known/oauth-authorization-server` URL; each response is evaluated independently
+
 ## Constraints and failure behavior
 
 - Off means off: no tool is listed, a call says the router is off, and no server is started (`TestHubMCPOff`, `TestHubToolsAndCalls`).
