@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"slices"
+	"sort"
 	"strings"
 	"time"
 
@@ -773,6 +774,71 @@ func titleShapeOf(body []byte) titleShape {
 	return q.Text.Format.Schema
 }
 
+var titleLabels = []string{"title", "标题", "標題", "题目", "題目", "タイトル", "見出し", "제목"}
+
+// withoutTitleLabel drops a leading title label only when it is followed by a
+// half-width or full-width colon. A bare label or a word that starts with one
+// stays as the title.
+func withoutTitleLabel(t string) string {
+	for _, label := range titleLabels {
+		if len(t) <= len(label) || !strings.EqualFold(t[:len(label)], label) {
+			continue
+		}
+		rest := t[len(label):]
+		if strings.HasPrefix(rest, ":") {
+			return strings.TrimSpace(rest[1:])
+		}
+		if strings.HasPrefix(rest, "：") {
+			return strings.TrimSpace(rest[len("："):])
+		}
+	}
+	return t
+}
+
+// titleField reads an exact title key before localized aliases, then checks
+// case-insensitive spellings as a deterministic last resort. JSON object map
+// iteration is deliberately never used to choose among preferred fields.
+func titleField(fields map[string]any) (string, bool) {
+	// Exact keys keep the declared priority, including an exact empty string.
+	for _, label := range titleLabels {
+		if v, ok := fields[label].(string); ok {
+			return v, true
+		}
+	}
+
+	// Compatibility with differently cased keys is intentionally considered
+	// only after every exact spelling. Sort candidates because map iteration is
+	// unspecified and a response must not change with map layout.
+	type candidate struct {
+		label int
+		key   string
+		value string
+	}
+	var candidates []candidate
+	for key, value := range fields {
+		v, ok := value.(string)
+		if !ok {
+			continue
+		}
+		for i, label := range titleLabels {
+			if key != label && strings.EqualFold(key, label) {
+				candidates = append(candidates, candidate{label: i, key: key, value: v})
+				break
+			}
+		}
+	}
+	sort.Slice(candidates, func(i, j int) bool {
+		if candidates[i].label != candidates[j].label {
+			return candidates[i].label < candidates[j].label
+		}
+		return candidates[i].key < candidates[j].key
+	})
+	if len(candidates) != 0 {
+		return candidates[0].value, true
+	}
+	return "", false
+}
+
 // titleJSON is a model's answer to a title request as Codex reads one:
 // {"title": "…"}, with each other string its shape requires. Codex asks
 // for that shape in the request's text.format, which a model behind
@@ -792,7 +858,7 @@ func titleJSON(said string, shape titleShape) string {
 	fields := map[string]any{}
 	if strings.HasPrefix(t, "{") {
 		if json.NewDecoder(bytes.NewReader([]byte(t))).Decode(&fields) == nil {
-			if v, ok := fields["title"].(string); ok {
+			if v, ok := titleField(fields); ok {
 				t = v
 			}
 		}
@@ -804,9 +870,7 @@ func titleJSON(said string, shape titleShape) string {
 			break
 		}
 	}
-	if low := strings.ToLower(t); strings.HasPrefix(low, "title:") {
-		t = t[len("title:"):]
-	}
+	t = withoutTitleLabel(t)
 	t = strings.TrimSpace(strings.Trim(strings.TrimSpace(t), "\"'`*#“”‘’"))
 	if t == "" || strings.HasPrefix(t, "{") {
 		return ""

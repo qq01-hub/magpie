@@ -151,6 +151,18 @@ not an error) and keeps the thread's as it was. Title Off does not turn
 descriptions off, nor the other way round (cybercaius on Discord asked for
 the description's).
 
+`titleJSON` accepts title object keys used by Codex and localized models. When
+more than one spelling is present, an exact string `title` wins, including an
+exact empty string, followed by exact localized keys in the order declared by
+`titleLabels`. Non-string values are skipped so a later string can be used.
+Case-insensitive key matches are compatibility fallbacks only and are sorted
+before selection, which keeps JSON map iteration from changing the title. Plain
+text labels use the same localized set with either colon width, while a bare
+label and words such as `标题党` remain title text. `titleJSON` and its edge
+cases are covered by `TestTitleJSON`, `TestTitleFieldPrefersExactTitle` and
+`TestTitleFieldUsesLocalizedOrderBeforeCaseFallback` in
+[`codex_titles_test.go`](../../internal/gateway/codex_titles_test.go)
+
 The Codex app's "generate commit message" and pull request text
 (`commit_message`, `pull_request_message`, `commit_pull_request_message`) are
 side turns of the same kind, each asked for in a schema of its own
