@@ -4,7 +4,7 @@
 
 账号为 [qq01-hub](https://github.com/qq01-hub)，整合分支为 [fix/unanswered-issues-20261128](https://github.com/qq01-hub/magpie/tree/fix/unanswered-issues-20261128)
 
-以下是已经完成并审核的 13 项，本轮其余问题仍在独立工作树处理
+以下是已经完成并审核的 14 项，本轮其余问题仍在独立工作树处理
 
 | Issue | 修复与边界 | 独立分支 | 审核 HEAD |
 | --- | --- | --- | --- |
@@ -21,6 +21,7 @@
 | [#7870](https://github.com/yetone/magpie/issues/7870) | 上游明确的图片大小超限 400/413 可转到组内下一成员，原成员不冷却，普通请求错误、图片格式、数量及速率限制不误归类 | [fix/7870-image-size-group-failover](https://github.com/qq01-hub/magpie/tree/fix/7870-image-size-group-failover) | `99930ace8900c72e56a8c699296b28e036692d97` |
 | [#7969](https://github.com/yetone/magpie/issues/7969) | 从插件自身聚合列表发现朗读及转写模型，支持第二账号与本地模型别名，遵守禁用和供应商顺序，不把普通音频聊天模型当成语音接口 | [fix/7969-plugin-speech-discovery](https://github.com/qq01-hub/magpie/tree/fix/7969-plugin-speech-discovery) | `cc7d131bd5c0b547f1987e0ce1cb0dcd5a138717` |
 | [#7816](https://github.com/yetone/magpie/issues/7816) | 移除插件账号后将其专有模型移出已选列表，保留手动模型，旧编辑窗口保存不会加回，账号恢复后重新列出 | [fix/7816-plugin-delisted-picks](https://github.com/qq01-hub/magpie/tree/fix/7816-plugin-delisted-picks) | `07c609ae5da16b0892e48aa5b3485bad9e78a4b8` |
+| [#7938](https://github.com/yetone/magpie/issues/7938) | AGY 本地摘要请求超限时精简历史图片和大工具输出，UTF-8 字符保持完整，普通请求及原生压缩保持原样，仍超限返回 413 | [fix/7938-oversized-agy-compaction](https://github.com/qq01-hub/magpie/tree/fix/7938-oversized-agy-compaction) | `59c12f9cca2ea0ee2432587e6dca1005079a6093` |
 
 ## 实际失败复现与验证
 
@@ -41,6 +42,7 @@
 | #7870 | 本地真实 HTTP 请求中首成员的图片大小限制 400 被直接返回，下一成员请求次数为零 | 六项顶层和 26 个子测试全部通过，覆盖小图前后仍用首成员、大小图回退、不冷却、分类负例及原有通用 413 回退 |
 | #7969 | 最终 WorkBuddy 模型 fixture 在原生产代码上四项失败：audio-only TTS 被聊天列表中的候补取代，供应商次序后的 TTS 选择错误，第二账号专有模型和本地别名缺失 | 七项测试及相同七项 race 全部通过，0 跳过，覆盖禁用、Select none、用户选择、普通音频聊天负例，真实 Bun 插件宿主；转写在此基线 fixture 已通过，不虚报为另一条红测 |
 | #7816 | 撤回后台 relisted 回调后移除账号仍留下两项专有模型，撤回 Fetch models 的插件条件后 dropped 为空 | 两项实际 Bun 插件回归及 race 通过，另两项后台重列与恢复测试通过 race，整合代码同四项通过，未复测原作者的真实 CodeZ 账号 |
+| #7938 | 真实超过 512 MiB 的本地 HTTP 请求在旧 handler 返回 413、上游零字节；作者补丁的工具输出截断会切碎 UTF-8 字符 | 大请求压缩及继续对话、UTF-8 边界、普通或仍超限输入、原生压缩四项均通过，整合代码同四项通过，运行未传 `-short`，未使用真实 AGY 账号 |
 
 说明：#7777 提交正文中边界红测的 “on the base” 指作者补丁上的边界版本，原始主干复现与作者补丁补强是两个独立失败记录
 
