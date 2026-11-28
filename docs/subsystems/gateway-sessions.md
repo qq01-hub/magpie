@@ -86,7 +86,8 @@ and `<rules>`, context alone, which `userWords` takes for the user's): all the
 conversations started in a folder on one day were one conversation, a subagent
 was its lead, and a plugin's fetch was told no session
 (`TestGrokBuildNamesItsSession`, on grok 1.0.89's and 1.0.92's own headers and
-first message). Everything that goes by the session an agent names goes by
+first message; `TestPluginToldTheSession` checks the plugin fetch). Everything
+that goes by the session an agent names goes by
 Grok's from then on: the conversation an account is kept for, the usage
 record's session and its By session views, a recorded gateway session, the
 turn-done alert, what a provider's header template is given as the session,
