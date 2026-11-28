@@ -2150,7 +2150,7 @@ provider's own key, nothing to set up: a Streamable HTTP session at
 `<host>/api/mcp/web_search_prime/mcp` (`provider.ZhipuCodingSearch`, only
 for a provider or key on the plan's `/api/coding/paas/v4`, since the
 server serves no pay-as-you-go key), `initialize`, one `tools/call` of
-`webSearchPrime` with `{"search_query"}`, then the session's DELETE. The
+`web_search_prime` with `{"search_query"}`, then the session's DELETE. The
 tool's text is read as a list of results, a list in a JSON string or a list
 under `search_result`/`results`/`items`/`data` (`readGLMSearch`); `isError`
 or words with no results are reported as an error, the key masked. A
@@ -2162,8 +2162,9 @@ providers' models: a plan with the Responses base already searches by
 itself there (#660). Covered by `TestGLMCodingPlanSearchesForItsModels`
 (a fake server with an event-stream reply, the refusal, a named searcher,
 a pay-as-you-go key), `TestReadGLMSearch` and
-`TestZhipuCodingSearchAddress`. Not tried against the real server: the
-docs give neither the tool's arguments nor its reply's shape.
+`TestZhipuCodingSearchAddress`. A real-key check reported in #6456 confirmed
+that `tools/list` advertises `web_search_prime` and that calling it succeeds;
+the automated tests use a fake server.
 
 ## Search results in translated Responses replies
 
