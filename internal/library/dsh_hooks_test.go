@@ -86,9 +86,12 @@ func TestHooksDsh(t *testing.T) {
 		t.Errorf("the user's row moved:\n%s", s)
 	}
 
-	// a second hook installs nothing again and writes one row still
+	// DeepSeek Desktop moves the comment below the insert key when it
+	// saves the profile. The next sync keeps that equivalent layout.
+	normalized := strings.Replace(read(t, web), "- insert: # magpie\n", "- insert:\n    # magpie\n", 1)
+	write(t, web, normalized)
 	ok(t)(SaveHook("", Hook{Name: "bark", Event: "turn-end", Command: "notify", Agents: []string{"dsh"}}))
-	if len(*runs) != 2 || strings.Count(read(t, web), "id: magpie-hooks\n") != 1 {
+	if len(*runs) != 2 || read(t, web) != normalized {
 		t.Errorf("runs %d\n%s", len(*runs), read(t, web))
 	}
 
@@ -142,7 +145,7 @@ func TestHooksDshReinstallsOnVersion(t *testing.T) {
 func TestHooksDshLeavesUsersRow(t *testing.T) {
 	h := sandbox(t)
 	web := filepath.Join(h, ".dsh/profiles/web/cordis.patch.yml")
-	mine := "- insert:\n    - id: my-hooks\n      name: \"@deepseek-ai/dsh-hooks-claude-code\"\n      config:\n        configPath: /x/hooks.json\n"
+	mine := "- insert:\n    - id: magpie-hooks\n      name: \"@deepseek-ai/dsh-hooks-claude-code\"\n      config:\n        configPath: /x/hooks.json\n"
 	write(t, web, mine)
 	fakeDshPlugins(t, "0.2.2-rc.5", nil)
 	res, err := SaveHook("", Hook{Name: "guard", Event: "before-tool", Command: "check.sh", Agents: []string{"dsh"}})
@@ -154,6 +157,10 @@ func TestHooksDshLeavesUsersRow(t *testing.T) {
 	}
 	if s := read(t, web); s != mine {
 		t.Fatalf("the user's row was changed:\n%s", s)
+	}
+	ok(t)(RemoveHooks([]string{"guard"}))
+	if s := read(t, web); s != mine {
+		t.Fatalf("the user's row was changed on removal:\n%s", s)
 	}
 }
 
