@@ -165,10 +165,14 @@ tier pick before restart (`advisorNamed`), as on gateway translations.
 Effort and `[1m]`/`[2m]` marks are removed before resolving either an alias
 or its tier pick, so an allowed model is still recognised with either
 context mark and an effort suffix.
+Parsing keeps the advisor's model id (`readAdvised`) until the original
+HTTP request is available: a vanished auto-group then prefers the calling
+agent's own subscription (`AutoStandInFor`), before the first provider.
 An explicit agent token or path keeps its own identity ahead of the
 Desktop Code tab's User-Agent, and key model restrictions still apply.
 `TestBridgeRequestResolvesDesktopAdvisorAliases`,
 `TestAdvisorDesktopTierPickSuffixes`,
+`TestAdvisorAutoStandInKeepsTheOriginalCaller`,
 `TestAdvisorDesktopTierAndStandInRespectKeyModels`.
 
 A turn with `tool_choice` none is offered every tool the client sent, as
