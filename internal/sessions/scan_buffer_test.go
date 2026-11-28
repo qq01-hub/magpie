@@ -67,7 +67,7 @@ func TestScanReadsALineLongerThanItsBuffer(t *testing.T) {
 }
 
 // Every other reader of a session file sizes its buffer as scanAt does:
-// the calls readers of MiniMax Code, agy and WorkBuddy, dsh's packed
+// the calls readers of MiniMax Code and agy, dsh's packed
 // frames and a search's first look each took 1 MiB per file read (#2776).
 func TestReadersOfASmallFileTakeASmallBuffer(t *testing.T) {
 	dir := t.TempDir()
@@ -93,7 +93,6 @@ func TestReadersOfASmallFileTakeASmallBuffer(t *testing.T) {
 	}{
 		{"minimax", func() { readMiniMaxCalls(file{path: plain, key: "minimax-code:s"}) }},
 		{"agy", func() { readAgyCalls(file{path: plain, key: "agy:s"}) }},
-		{"workbuddy", func() { readWorkBuddyCalls(file{agent: "workbuddy", path: plain, key: "workbuddy:s"}) }},
 		{"frames", func() { scanFrames(framed, 0, 0, func([]byte) bool { return true }) }},
 		{"search", func() { mayHold(context.Background(), plain, "absent") }},
 	} {

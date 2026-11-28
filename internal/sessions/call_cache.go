@@ -80,7 +80,9 @@ const callCacheVersion = "calls-v15"
 // antigravity 3: a call the vendor's response id names counts once by it,
 // in whichever conversation's database it is (antigravityCallID): a
 // subagent's call was its own and its parent's.
-var callParseVersions = map[string]int{"agy": 2, "antigravity": 3, "cindy": 2, "codex": 3, "pi": 1, "raft": 1, "zcode": 4}
+// workbuddy 1, workbuddy-ai 1, codebuddy 1: read only complete lines and
+// carry the last reply's id across appends and restarts (buddyCallCarry)
+var callParseVersions = map[string]int{"agy": 2, "antigravity": 3, "cindy": 2, "codex": 3, "pi": 1, "raft": 1, "zcode": 4, "workbuddy": 1, "workbuddy-ai": 1, "codebuddy": 1}
 
 // CallCacheVersion is callCacheVersion and callParseVersions, for a cache
 // of what is made of the calls (usage's requests-v1.bin and heatmap): a
@@ -273,11 +275,8 @@ func keepCalls(path string, st *callFile) {
 // in callFiles needs an entry here, in lineCallReaders or in
 // resumeCallReaders, or its calls are never read.
 var wholeCallReaders = map[string]func(file) (*callFile, bool){
-	"opencode":     readOpenCodeCalls,
-	"zcode":        readZCodeCalls,
-	"workbuddy":    readWorkBuddyCalls,
-	"workbuddy-ai": readWorkBuddyCalls,
-	"codebuddy":    readWorkBuddyCalls, // #1779
+	"opencode": readOpenCodeCalls,
+	"zcode":    readZCodeCalls,
 	// #1605
 	"minimax-code": readMiniMaxCalls,
 	"agy":          readAgyCalls,         // #2097
@@ -314,12 +313,15 @@ type lineCallReader struct {
 // lineCallReaders are the agents in callSources, beside callFiles' own,
 // whose calls are each one line of a file only appended to.
 var lineCallReaders = map[string]lineCallReader{
-	"kimi":  {kimiCallsBegin, kimiCallLine, nil},         // #1607
-	"pi":    {piCallsBegin, readPiCallLine, piCallsKept}, // #1951
-	"raft":  {piCallsBegin, readPiCallLine, piCallsKept},
-	"cindy": {piCallsBegin, readPiCallLine, piCallsKept},
-	"omp":   {piCallsBegin, readPiCallLine, piCallsKept},
-	"grok":  {grokCallsBegin, grokCallLine, grokCallsKept}, // #4423
+	"kimi":         {kimiCallsBegin, kimiCallLine, nil},         // #1607
+	"pi":           {piCallsBegin, readPiCallLine, piCallsKept}, // #1951
+	"raft":         {piCallsBegin, readPiCallLine, piCallsKept},
+	"cindy":        {piCallsBegin, readPiCallLine, piCallsKept},
+	"omp":          {piCallsBegin, readPiCallLine, piCallsKept},
+	"grok":         {grokCallsBegin, grokCallLine, grokCallsKept}, // #4423
+	"workbuddy":    {buddyCallsBegin, buddyCallLine, buddyCallsKept},
+	"workbuddy-ai": {buddyCallsBegin, buddyCallLine, buddyCallsKept},
+	"codebuddy":    {buddyCallsBegin, buddyCallLine, buddyCallsKept},
 }
 
 // callLock is the lock a file's calls are read under, so that two readers
@@ -619,6 +621,10 @@ type callDiskState struct {
 	GrokSince time.Time
 	GrokModel string
 	GrokAsked string
+	// Buddy apps' carry, including the models.json used to exclude gateway calls
+	BuddyOn          bool
+	BuddyLast        string
+	BuddyModelsStamp string
 }
 
 func diskCallState(s *callFile) callDiskState {
@@ -633,6 +639,9 @@ func diskCallState(s *callFile) callDiskState {
 	}
 	if g := s.Grok; g != nil {
 		d.GrokOn, d.GrokSince, d.GrokModel, d.GrokAsked = true, g.Since, g.Model, g.Asked
+	}
+	if b := s.Buddy; b != nil {
+		d.BuddyOn, d.BuddyLast, d.BuddyModelsStamp = true, b.Last, b.ModelsStamp
 	}
 	return d
 }
@@ -651,6 +660,9 @@ func (s callDiskState) restore() *callFile {
 	}
 	if s.GrokOn {
 		st.Grok = &grokCallCarry{Since: s.GrokSince, Model: s.GrokModel, Asked: s.GrokAsked}
+	}
+	if s.BuddyOn {
+		st.Buddy = &buddyCallCarry{Last: s.BuddyLast, ModelsStamp: s.BuddyModelsStamp}
 	}
 	return st
 }
