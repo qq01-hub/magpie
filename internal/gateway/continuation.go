@@ -220,6 +220,7 @@ func (t *chatTail) see(data []byte) {
 				FunctionCall     json.RawMessage   `json:"function_call"`
 				ReasoningContent json.RawMessage   `json:"reasoning_content"`
 				Reasoning        json.RawMessage   `json:"reasoning"`
+				ReasoningText    json.RawMessage   `json:"reasoning_text"`
 				ReasoningDetails []json.RawMessage `json:"reasoning_details"`
 			} `json:"delta"`
 			Message struct {
@@ -237,7 +238,7 @@ func (t *chatTail) see(data []byte) {
 		d := c.Delta
 		t.calls = t.calls || len(d.ToolCalls) > 0 || rawSays(d.FunctionCall) || len(c.Message.ToolCalls) > 0
 		t.text = t.text || d.Content != "" || d.Refusal != "" || c.Message.Content != ""
-		t.thought = t.thought || rawSays(d.ReasoningContent) || rawSays(d.Reasoning) || len(d.ReasoningDetails) > 0
+		t.thought = t.thought || rawSays(d.ReasoningContent) || rawSays(d.Reasoning) || rawSays(d.ReasoningText) || len(d.ReasoningDetails) > 0
 	}
 }
 

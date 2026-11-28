@@ -43,6 +43,7 @@ type cRequest struct {
 		Content          json.RawMessage `json:"content"`
 		ReasoningContent json.RawMessage `json:"reasoning_content,omitempty"`
 		Reasoning        json.RawMessage `json:"reasoning,omitempty"`
+		ReasoningText    json.RawMessage `json:"reasoning_text,omitempty"`
 		ReasoningDetails json.RawMessage `json:"reasoning_details,omitempty"`
 		ToolCalls        []cToolCall     `json:"tool_calls,omitempty"`
 		ToolCallID       string          `json:"tool_call_id,omitempty"`
@@ -109,6 +110,30 @@ func chatEffort(c *cRequest) string {
 	return ""
 }
 
+// chatThinkOff recognizes every Chat spelling that turns reasoning off. The
+// normalized effort remains low so a vendor with no off switch still gets its
+// supported minimum level.
+func chatThinkOff(c *cRequest) bool {
+	if strings.TrimSpace(c.ReasoningEffort) != "" {
+		return strings.EqualFold(strings.TrimSpace(c.ReasoningEffort), "none")
+	}
+	for _, raw := range []json.RawMessage{c.Reasoning, c.OutputConfig} {
+		var v struct {
+			Effort string `json:"effort"`
+		}
+		if len(raw) > 0 && decodeJSON(raw, &v) == nil && strings.EqualFold(strings.TrimSpace(v.Effort), "none") {
+			return true
+		}
+		if v.Effort != "" {
+			return false
+		}
+	}
+	var v struct {
+		Type string `json:"type"`
+	}
+	return len(c.Thinking) > 0 && decodeJSON(c.Thinking, &v) == nil && strings.EqualFold(strings.TrimSpace(v.Type), "disabled")
+}
+
 func parseChat(body []byte) (*Request, error) { return readChat(body, false) }
 
 // readChat is parseChat; for facts (readFacts) it leaves out what they
@@ -136,7 +161,7 @@ func readChat(body []byte, facts bool) (*Request, error) {
 	if r.Effort != "" {
 		r.Thinking = true
 	}
-	r.ThinkOff = strings.EqualFold(strings.TrimSpace(c.ReasoningEffort), "none")
+	r.ThinkOff = chatThinkOff(&c)
 	var stop string
 	if decodeJSON(c.Stop, &stop) == nil && stop != "" {
 		r.Stop = []string{stop}
@@ -180,6 +205,7 @@ func readChat(body []byte, facts bool) (*Request, error) {
 			if think := reasoningText(map[string]json.RawMessage{
 				"reasoning_content": m.ReasoningContent,
 				"reasoning":         m.Reasoning,
+				"reasoning_text":    m.ReasoningText,
 				"reasoning_details": m.ReasoningDetails,
 			}); think != "" {
 				msg.Parts = append(msg.Parts, Part{Kind: Thinking, Text: think})
@@ -753,6 +779,15 @@ func buildChat(r *Request, model, host string, rejectTemp bool) []byte {
 	}
 	b, _ := marshalBody(out, "messages")
 	return b
+}
+
+// copilotGeminiThinkOffBody applies the vendor's minimum effort at the final
+// Chat wire, after every caller protocol has been translated and normalized.
+func copilotGeminiThinkOffBody(p provider.Provider, to provider.Protocol, model string, req *Request, body []byte) []byte {
+	if to != provider.Chat || !req.ThinkOff || !copilotGemini4(p, model) || req.Effort != "" && !offEffort(req.Effort) {
+		return body
+	}
+	return withFields(body, map[string]any{"reasoning_effort": "low"})
 }
 
 // pairToolMessages mends the tool exchange of a Chat request's messages
@@ -1559,6 +1594,7 @@ func (d *chatDecoder) decode(data string, emit func(Event)) error {
 				Content          json.RawMessage `json:"content"`
 				ReasoningContent string          `json:"reasoning_content"`
 				Reasoning        string          `json:"reasoning"`
+				ReasoningText    string          `json:"reasoning_text"`
 				ToolCalls        []cToolCall     `json:"tool_calls"`
 				// Vertex AI's OpenAI-compatible API marks a chunk of
 				// Gemini's thoughts here, the thought its content
@@ -1619,6 +1655,9 @@ func (d *chatDecoder) decode(data string, emit func(Event)) error {
 		t := c.Delta.ReasoningContent
 		if t == "" {
 			t = c.Delta.Reasoning
+		}
+		if t == "" {
+			t = c.Delta.ReasoningText
 		}
 		// Mistral's content may be typed parts, its thinking among them
 		// (#483): a chunk that couldn't be read as a string lost both

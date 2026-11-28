@@ -795,12 +795,12 @@ func (t *chatWhole) flush() []byte {
 // OpenCode and most clients send), reasoning (OpenRouter's) and
 // reasoning_details (OpenRouter's structured one). DeepSeek, Kimi and the
 // like want it back; Mistral turns each away as extra_forbidden (#494).
-var messageReasoning = []string{"reasoning_content", "reasoning", "reasoning_details"}
+var messageReasoning = []string{"reasoning_content", "reasoning", "reasoning_text", "reasoning_details"}
 
 // reasoningText is the thinking a message carries in messageReasoning:
 // reasoning_content, else reasoning, else reasoning_details' text.
 func reasoningText(m map[string]json.RawMessage) string {
-	for _, f := range messageReasoning[:2] {
+	for _, f := range messageReasoning[:3] {
 		var s string
 		if decodeJSON(m[f], &s) == nil && s != "" {
 			return s

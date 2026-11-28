@@ -357,7 +357,18 @@ func thinksByDefault(p provider.Provider, model string) bool {
 	if strings.HasSuffix(p.VendorHost(), "tencentmaas.com") && strings.Contains(strings.ToLower(model), "deepseek") {
 		return true
 	}
+	if copilotGemini4(p, model) {
+		return true
+	}
 	return googleGemini(p, model) && geminiThinksByDefault(model)
+}
+
+func copilotGemini4(p provider.Provider, model string) bool {
+	if p.Account == nil || p.Account.Agent != "copilot" {
+		return false
+	}
+	m := strings.ToLower(strings.TrimPrefix(model, "models/"))
+	return strings.HasPrefix(m, "gemini-4-")
 }
 
 // googleGemini is whether p serves model as Google serves it: one of
@@ -397,7 +408,7 @@ func namesReasoning(proto provider.Protocol, body []byte) bool {
 	case provider.Chat:
 		// extra_body's google.thinking_config is Gemini's own, through
 		// its OpenAI-compatible API
-		for _, k := range []string{"reasoning_effort", "thinking", "enable_thinking", "chat_template_kwargs", "reasoning", "extra_body.google.thinking_config", "thinking_config"} {
+		for _, k := range []string{"reasoning_effort", "thinking", "enable_thinking", "chat_template_kwargs", "reasoning", "output_config.effort", "extra_body.google.thinking_config", "thinking_config"} {
 			if gjson.GetBytes(body, k).Exists() {
 				return true
 			}
@@ -418,21 +429,30 @@ func namesReasoning(proto provider.Protocol, body []byte) bool {
 // output for the model, and the limit is a small one (at most
 // thinkingRoomBelow). The model's own limit, where known, still caps it.
 func withThinkingRoom(p provider.Provider, model string, proto provider.Protocol, body []byte) []byte {
+	if copilotGemini4(p, model) && copilotThinkOffBody(proto, body) {
+		if userOutput(p, model) > 0 {
+			return body
+		}
+		field := outputFieldForBody(proto, body)
+		if field == "" {
+			return body
+		}
+		n := int(gjson.GetBytes(body, field).Int())
+		if n <= 0 || n > thinkingRoomBelow {
+			return body
+		}
+		if own := askedOutput(p, model); own > 0 && replyRoom(n, "low") > own {
+			n = own
+		} else {
+			n = replyRoom(n, "low")
+		}
+		return withFields(body, map[string]any{field: n})
+	}
 	if !thinksByDefault(p, model) || namesReasoning(proto, body) || userOutput(p, model) > 0 {
 		return body
 	}
-	var field string
-	switch proto {
-	case provider.Chat:
-		field = "max_tokens"
-		if !gjson.GetBytes(body, field).Exists() {
-			field = "max_completion_tokens"
-		}
-	case provider.Responses:
-		field = "max_output_tokens"
-	case provider.Anthropic:
-		field = "max_tokens"
-	default:
+	field := outputFieldForBody(proto, body)
+	if field == "" {
 		// a Gemini client's maxOutputTokens is in Gemini's own words,
 		// which count the thoughts: its own choice
 		return body
@@ -446,6 +466,78 @@ func withThinkingRoom(p provider.Provider, model string, proto provider.Protocol
 		n = own
 	}
 	return withFields(body, map[string]any{field: n})
+}
+
+func outputField(proto provider.Protocol) string {
+	switch proto {
+	case provider.Chat:
+		return "max_tokens"
+	case provider.Responses:
+		return "max_output_tokens"
+	case provider.Anthropic:
+		return "max_tokens"
+	default:
+		return ""
+	}
+}
+
+func outputFieldForBody(proto provider.Protocol, body []byte) string {
+	field := outputField(proto)
+	if proto == provider.Chat && !gjson.GetBytes(body, field).Exists() {
+		field = "max_completion_tokens"
+	}
+	return field
+}
+
+func copilotThinkOffBody(proto provider.Protocol, body []byte) bool {
+	var v struct {
+		ReasoningEffort string `json:"reasoning_effort"`
+		Reasoning       struct {
+			Effort string `json:"effort"`
+		} `json:"reasoning"`
+		OutputConfig struct {
+			Effort string `json:"effort"`
+		} `json:"output_config"`
+		Thinking struct {
+			Type string `json:"type"`
+		} `json:"thinking"`
+	}
+	if json.Unmarshal(body, &v) != nil {
+		return false
+	}
+	switch proto {
+	case provider.Chat:
+		if v.ReasoningEffort != "" {
+			return strings.EqualFold(v.ReasoningEffort, "none")
+		}
+		if v.Reasoning.Effort != "" {
+			return strings.EqualFold(v.Reasoning.Effort, "none")
+		}
+		if v.OutputConfig.Effort != "" {
+			return strings.EqualFold(v.OutputConfig.Effort, "none")
+		}
+		return strings.EqualFold(v.Thinking.Type, "disabled")
+	case provider.Responses:
+		return strings.EqualFold(v.Reasoning.Effort, "none")
+	case provider.Anthropic:
+		if strings.EqualFold(v.Thinking.Type, "disabled") || strings.EqualFold(v.Thinking.Type, "between_tools") {
+			return true
+		}
+		return (strings.EqualFold(v.Thinking.Type, "enabled") || strings.EqualFold(v.Thinking.Type, "adaptive")) && strings.EqualFold(v.OutputConfig.Effort, "none")
+	default:
+		return false
+	}
+}
+
+// copilotGeminiThinkOffWire changes a direct Chat request's unsupported
+// reasoning off spelling to Copilot Gemini's minimum supported effort. It
+// runs only on the final Chat wire; Responses and Messages keep their own
+// protocol fields until translation builds Chat.
+func copilotGeminiThinkOffWire(p provider.Provider, to provider.Protocol, body []byte) []byte {
+	if to != provider.Chat || !copilotGemini4(p, gjson.GetBytes(body, "model").String()) || !copilotThinkOffBody(to, body) {
+		return body
+	}
+	return withFields(body, map[string]any{"reasoning_effort": "low"})
 }
 
 // thinkingRoomBelow is the largest reply limit a request names that is

@@ -311,6 +311,7 @@ func timingKind(ev []byte) (content, text, reasoning, hidden bool) {
 				Refusal          json.RawMessage `json:"refusal"`
 				ReasoningContent json.RawMessage `json:"reasoning_content"`
 				Reasoning        json.RawMessage `json:"reasoning"`
+				ReasoningText    json.RawMessage `json:"reasoning_text"`
 				ToolCalls        json.RawMessage `json:"tool_calls"`
 				FunctionCall     json.RawMessage `json:"function_call"`
 			} `json:"delta"`
@@ -374,11 +375,11 @@ func timingKind(ev []byte) (content, text, reasoning, hidden bool) {
 	}
 	for _, c := range v.Choices { // Chat
 		d := c.Delta
-		reasoning = reasoning || filled(d.ReasoningContent) || filled(d.Reasoning)
+		reasoning = reasoning || filled(d.ReasoningContent) || filled(d.Reasoning) || filled(d.ReasoningText)
 		if filled(d.Content) || filled(d.Refusal) {
 			return true, true, reasoning, hidden
 		}
-		if filled(d.ReasoningContent) || filled(d.Reasoning) || filled(d.ToolCalls) || filled(d.FunctionCall) {
+		if filled(d.ReasoningContent) || filled(d.Reasoning) || filled(d.ReasoningText) || filled(d.ToolCalls) || filled(d.FunctionCall) {
 			content = true
 		}
 	}
