@@ -2,6 +2,7 @@ package gateway
 
 import (
 	"encoding/json"
+	"net/http"
 	"strings"
 
 	"github.com/tidwall/gjson"
@@ -28,7 +29,7 @@ import (
 // whether the calling key may use one of p's models (keyAllows): the
 // advisor's model is the client's to name, and the vendor runs it on the
 // user's account, so a key held to some models is held here too.
-func advisorTools(body []byte, p provider.Provider, upstream string, wires map[string]string, allowed func(model string) bool) []byte {
+func advisorTools(r *http.Request, body []byte, p provider.Provider, upstream string, wires map[string]string, allowed func(model string) bool) []byte {
 	if !bodyHas(body, `"advisor_`) {
 		return body
 	}
@@ -53,8 +54,9 @@ func advisorTools(body []byte, p provider.Provider, upstream string, wires map[s
 			continue
 		}
 		json.Unmarshal(t["model"], &model)
-		name, ok := advisorModel(p, model, wires)
-		if ok && allowed != nil && !allowed(advisorKeyModel(model)) {
+		id := advisorNamed(r, model)
+		name, ok := advisorModel(p, id, wires)
+		if ok && allowed != nil && !allowed(advisorKeyModel(id)) {
 			ok = false
 		}
 		if !claude || !ok {
@@ -109,11 +111,42 @@ func advisorID(model string) string {
 	return provider.CanonicalRef(unflat(model))
 }
 
+// advisorNamed resolves the advisor's agent alias, effort and context mark
+// before checking whether the upstream or magpie can serve it
+// Claude Desktop can send its own tier id before restarting into its pick
+func advisorNamed(r *http.Request, raw string) string {
+	m, _ := askedAt(strings.TrimSpace(raw))
+	id := strings.TrimSuffix(strings.TrimSuffix(m, "[1m]"), "[2m]")
+	if id == "" {
+		return ""
+	}
+	id = unprefixed(id)
+	agent := ""
+	if r != nil {
+		agent = agentOf(r)
+		if agent != "claude-desktop" && strings.Contains(r.Header.Get("User-Agent"), "claude-desktop") {
+			agent = "claude-desktop"
+		}
+	}
+	if agent == "claude-desktop" && claudeOwnID(id) {
+		if pick := DesktopTiers()[claudeTier(id)]; pick != "" {
+			id = unprefixed(strings.TrimSuffix(pick, "[1m]"))
+		}
+	}
+	if inner, e := askedAt(id); e != "" {
+		id = unprefixed(strings.TrimSuffix(inner, "[1m]"))
+	}
+	if sid, ok := provider.AutoStandInFor(agent, provider.CanonicalRef(id)); ok {
+		id = sid
+	}
+	return provider.CanonicalRef(id)
+}
+
 // advisorKeyModel is the model id a key's models are checked against for
 // an advisor named model: magpie's model id when it names one, else the
 // bare id as it was sent.
 func advisorKeyModel(model string) string {
-	model = advisorID(model)
+	model = advisorNamed(nil, model)
 	if _, m, ok := provider.Resolve(model); ok && !provider.IsGroupRef(model) {
 		return m
 	}
@@ -124,7 +157,7 @@ func advisorKeyModel(model string) string {
 // whether p can run it: one of p's models, by magpie's id, or a Claude
 // model's own id that names no provider.
 func advisorModel(p provider.Provider, model string, wires map[string]string) (string, bool) {
-	model = advisorID(model)
+	model = advisorNamed(nil, model)
 	if model == "" {
 		return "", false
 	}

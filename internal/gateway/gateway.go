@@ -6529,7 +6529,7 @@ func (s *Server) attempt(w http.ResponseWriter, r *http.Request, from provider.P
 	}
 	// Claude Code's advisor, which magpie runs for a model whose upstream
 	// can't (advisor_serve.go): a relay would leave it out (advisorTools)
-	if relay && advisedHere(p, from, from, model, body, wiresOf(r.Context())) {
+	if relay && advisedHere(r, p, from, from, model, body, wiresOf(r.Context())) {
 		relay, ownAPI = false, true
 	}
 	// Copilot seals an argument the tools mark "encrypted" (spawn_agent's
@@ -7614,8 +7614,8 @@ func (s *Server) passthrough(w http.ResponseWriter, r *http.Request, p provider.
 		body = toolBlocksPaired(namelessBlocksOut(body))
 		// Claude Code's advisor, named by magpie's id (advisor.go); its
 		// calls' usage rows go by that id (advisorRows)
-		advisor = advisorKeyModel(advisorAsked(provider.Anthropic, body))
-		body = advisorTools(body, p, upstream, wiresOf(r.Context()), keyAllows(r, p))
+		advisor = advisorKeyModel(advisorNamed(r, advisorAsked(provider.Anthropic, body)))
+		body = advisorTools(r, body, p, upstream, wiresOf(r.Context()), keyAllows(r, p))
 		if p.IsBedrock() {
 			// Claude Code's metadata.user_id, a JSON string these days, is
 			// not the plain id Bedrock checks it against (#176)
@@ -10307,10 +10307,13 @@ func (s *Server) translate(w http.ResponseWriter, r *http.Request, p provider.Pr
 	}
 	// Claude Code's advisor, run by magpie for a model whose upstream
 	// can't (advisor_serve.go)
-	advised := advisedHere(p, from, to, model, body, wiresOf(r.Context()))
+	advised := advisedHere(r, p, from, to, model, body, wiresOf(r.Context()))
 	request, err := parseTranslated(from, to, body, advised)
 	if err != nil {
 		return writeError(w, from, 400, err.Error()), err.Error()
+	}
+	if request.Advisor != "" {
+		request.Advisor = advisorNamed(r, request.Advisor)
 	}
 	if request.WebSearch {
 		// an API on which the provider searches by itself comes first;

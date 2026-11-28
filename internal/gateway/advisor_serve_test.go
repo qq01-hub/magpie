@@ -379,8 +379,123 @@ func TestAdvisedHere(t *testing.T) {
 		{"no advisor", v, provider.Chat, "glm-5.1", claudeCodeTurn("v/glm-5.1", "x"), false},
 		{"client's own advisor", v, provider.Chat, "glm-5.1", strings.Replace(advisorTurn("v/glm-5.1", "relay/claude-opus-5-5"), `{"name":"Read"`, `{"name":"advisor","input_schema":{"type":"object"}},{"name":"Read"`, 1), false},
 	} {
-		if got := advisedHere(c.p, provider.Anthropic, c.to, c.model, []byte(c.body), nil); got != c.want {
+		if got := advisedHere(nil, c.p, provider.Anthropic, c.to, c.model, []byte(c.body), nil); got != c.want {
 			t.Errorf("%s: advisedHere %t, want %t", c.name, got, c.want)
 		}
+	}
+}
+
+// Claude Desktop and other agents send the advisor model under their listed
+// aliases or spellings (mythos-magpie-<n>, magpie-<n>.anthropic.<model>,
+// anthropic/magpie-<n>, desktopTierAlias, flat ~, dashed Claude versions,
+// :effort, [1m], un-restarted DesktopTiers picks, and auto/ refs with auto
+// groups off): advisedHere, readAdvised and translate resolve it via
+// advisorNamed so magpie runs the advisor instead of stripping it.
+func TestAdvisorDesktopAliasServed(t *testing.T) {
+	u := advisedSetup(t)
+	if err := provider.SetModelEfforts("adv/adv-pro", []string{"low", "high"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := provider.Save(provider.Provider{ID: "adv2", Name: "Adv2", Key: "k", Chat: "http://127.0.0.1:1/v1", Models: []string{"adv-pro"}}); err != nil {
+		t.Fatal(err)
+	}
+	if err := provider.Save(provider.Provider{ID: "relay", Name: "Relay", Key: "k", Anthropic: "http://127.0.0.1:1", Models: []string{"claude-opus-5-5", "claude-sonnet-5-5"}}); err != nil {
+		t.Fatal(err)
+	}
+	if err := provider.SetModelEfforts("relay/claude-opus-5-5", []string{"low", "high"}); err != nil {
+		t.Fatal(err)
+	}
+	var execAlias, advAlias, relayOpusAlias string
+	shown, _ := provider.CatalogFor("claude-desktop")
+	for _, e := range shown {
+		switch e.ID {
+		case "v/glm-5.1":
+			execAlias = DesktopID(e)
+		case "adv/adv-pro":
+			advAlias = DesktopID(e)
+		case "relay/claude-opus-5-5":
+			relayOpusAlias = DesktopID(e)
+		}
+	}
+	if !strings.HasPrefix(execAlias, "anthropic/magpie-") || !strings.HasPrefix(advAlias, "mythos-magpie-") || !strings.HasPrefix(relayOpusAlias, "magpie-") {
+		t.Fatalf("unexpected desktop aliases: exec=%q adv=%q relayOpus=%q", execAlias, advAlias, relayOpusAlias)
+	}
+
+	rp, err := provider.Find("relay")
+	if err != nil {
+		t.Fatal(err)
+	}
+	vp, err := provider.Find("v")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range []struct {
+		name  string
+		p     provider.Provider
+		to    provider.Protocol
+		model string
+		adv   string
+		want  bool
+	}{
+		{"native desktop alias", *rp, provider.Anthropic, "claude-sonnet-5-5", relayOpusAlias, false},
+		{"vendor with mythos-magpie", *vp, provider.Chat, "glm-5.1", advAlias, true},
+		{"vendor with mythos-magpie 1M", *vp, provider.Chat, "glm-5.1", advAlias + "[1m]", true},
+		{"vendor with mythos-magpie effort", *vp, provider.Chat, "glm-5.1", advAlias + ":high[1m]", true},
+		{"vendor with flat 1M", *vp, provider.Chat, "glm-5.1", "adv~adv-pro[1m]", true},
+		{"vendor with anthropic/magpie", *vp, provider.Chat, "glm-5.1", execAlias, true},
+		{"relay with other mythos-magpie", *rp, provider.Anthropic, "claude-sonnet-5-5", advAlias, true},
+	} {
+		if got := advisedHere(nil, c.p, provider.Anthropic, c.to, c.model, []byte(advisorTurn("v/glm-5.1", c.adv)), nil); got != c.want {
+			t.Errorf("%s: advisedHere %t, want %t", c.name, got, c.want)
+		}
+	}
+
+	// An auto/<model> advisor ref keeps working after the user turns off
+	// auto groups (AutoStandInFor).
+	if err := provider.SetAutoGroups(false); err != nil {
+		t.Fatal(err)
+	}
+	if !advisedHere(nil, *vp, provider.Anthropic, provider.Chat, "glm-5.1", []byte(advisorTurn("v/glm-5.1", "auto/adv-pro")), nil) {
+		t.Fatal("auto/adv-pro dropped when auto groups are off")
+	}
+	if err := provider.SetAutoGroups(true); err != nil {
+		t.Fatal(err)
+	}
+
+	s := New()
+	// Alias with :high[1m] suffix resolves to the served advisor model.
+	blocks := sendAdvised(t, s, advisorTurn(execAlias, advAlias+":high[1m]"), false)
+	if got := blockTypes(blocks); got != "text,server_tool_use,advisor_tool_result,text" {
+		t.Fatalf("blocks %s: %v", got, blocks)
+	}
+	content, _ := blocks[2]["content"].(map[string]any)
+	if content["type"] != "advisor_result" || content["text"] != "Check the tests first." {
+		t.Fatalf("advice %v", content)
+	}
+	u.mu.Lock()
+	if len(u.advisor) != 1 || gjson.Get(u.advisor[0], "model").String() != "adv-pro" {
+		t.Fatalf("advisor requests %v", u.advisor)
+	}
+	u.advisor = nil
+	u.mu.Unlock()
+
+	// Un-restarted Claude Desktop session asking for Claude's own tier id
+	// resolves through DesktopTiers.
+	if err := SetDesktopTier("opus", "adv/adv-pro"); err != nil {
+		t.Fatal(err)
+	}
+	req := httptest.NewRequest("POST", "/v1/messages?beta=true", strings.NewReader(strings.Replace(advisorTurn(execAlias, "claude-fable-5-2"), `"claude-fable-5-2"`, `"claude-opus-4-7"`, 1)))
+	req.Header.Set("User-Agent", "claude-cli/2.1.321 (external, claude-desktop)")
+	req.Header.Set("Authorization", "Bearer "+Token)
+	rec := httptest.NewRecorder()
+	s.Handler().ServeHTTP(rec, req)
+	if rec.Code != 200 {
+		t.Fatalf("%d %s", rec.Code, rec.Body)
+	}
+	u.mu.Lock()
+	advCount := len(u.advisor)
+	u.mu.Unlock()
+	if advCount != 1 {
+		t.Fatalf("desktop tier advisor called %d times, want 1: %s", advCount, rec.Body.String())
 	}
 }

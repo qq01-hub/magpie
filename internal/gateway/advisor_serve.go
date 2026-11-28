@@ -50,17 +50,17 @@ const advisorUses = 3
 // advisedHere tells whether magpie runs the advisor of a Messages request
 // it serves on p's model on API to: Claude Code asked for one, the
 // upstream doesn't run it itself, and magpie serves its model.
-func advisedHere(p provider.Provider, from, to provider.Protocol, model string, body []byte, wires map[string]string) bool {
-	adv := advisorAsked(from, body)
-	if adv == "" {
+func advisedHere(r *http.Request, p provider.Provider, from, to provider.Protocol, model string, body []byte, wires map[string]string) bool {
+	resolved := advisorNamed(r, advisorAsked(from, body))
+	if resolved == "" {
 		return false
 	}
 	if to == provider.Anthropic && anthropicModel.MatchString(provider.UpstreamNameIn(wires, p.ID, model)) {
-		if _, ok := advisorModel(p, adv, wires); ok {
+		if _, ok := advisorModel(p, resolved, wires); ok {
 			return false // Anthropic's server runs it (advisorTools)
 		}
 	}
-	_, _, ok := provider.Resolve(adv)
+	_, _, ok := provider.Resolve(resolved)
 	return ok
 }
 

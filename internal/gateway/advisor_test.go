@@ -1,6 +1,7 @@
 package gateway
 
 import (
+	"net/http/httptest"
 	"os"
 	"strings"
 	"testing"
@@ -154,5 +155,96 @@ func TestAdvisorLeftOutOnTranslation(t *testing.T) {
 			}
 			advisorSaid(t, c.name, b, false)
 		})
+	}
+}
+
+// Claude Desktop sends its advisor model under the alias /v1/models gave it
+// (magpie-<n>.anthropic.<model>, mythos-magpie-<n>, anthropic/magpie-<n>,
+// desktopTierAlias, with or without :effort and [1m]), or under Claude's own
+// tier id before Desktop restarts into a new DesktopTiers pick: advisorTools
+// resolves it to the upstream's wire name on the same Anthropic provider, and
+// turns cross-provider aliases over to magpie's own advisor runner.
+func TestAdvisorDesktopAliasPassthrough(t *testing.T) {
+	fresh(t)
+	u, url := newBillingUpstream(t)
+	for _, p := range []provider.Provider{
+		{ID: "relay", Name: "Relay", Key: "k", Anthropic: url, Models: []string{"claude-opus-5-5", "claude-opus-4-6", "claude-sonnet-5-5"}},
+		{ID: "other", Name: "Other", Key: "k", Anthropic: url, Models: []string{"claude-opus-5-5"}},
+		{ID: "ds", Name: "DeepSeek", Key: "k", Anthropic: url, Models: []string{"deepseek-v4.1-flash"}},
+	} {
+		if err := provider.Save(p); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, ref := range []string{"relay/claude-opus-5-5", "other/claude-opus-5-5"} {
+		if err := provider.SetModelEfforts(ref, []string{"low", "high"}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := SetDesktopTier("opus", "relay/claude-opus-4-6"); err != nil {
+		t.Fatal(err)
+	}
+	if err := SetDesktopTier("sonnet", "relay/claude-opus-4-6"); err != nil {
+		t.Fatal(err)
+	}
+	shared := DesktopTierAliases()["relay/claude-opus-4-6"]
+	if len(shared) != 1 {
+		t.Fatalf("expected 1 shared tier alias, got %v", shared)
+	}
+	var relayOpusAlias, otherOpusAlias string
+	shown, _ := provider.CatalogFor("claude-desktop")
+	for _, e := range shown {
+		switch e.ID {
+		case "relay/claude-opus-5-5":
+			relayOpusAlias = DesktopID(e)
+		case "other/claude-opus-5-5":
+			otherOpusAlias = DesktopID(e)
+		}
+	}
+	if !strings.HasPrefix(relayOpusAlias, "magpie-") || !strings.HasPrefix(otherOpusAlias, "magpie-") {
+		t.Fatalf("unexpected desktop aliases: relay=%q other=%q", relayOpusAlias, otherOpusAlias)
+	}
+	sendDesktop := func(body string) {
+		t.Helper()
+		rec := httptest.NewRecorder()
+		req := httptest.NewRequest("POST", "/v1/messages?beta=true", strings.NewReader(body))
+		req.Header.Set("User-Agent", "claude-cli/2.1.321 (external, claude-desktop)")
+		req.Header.Set("Authorization", "Bearer "+Token)
+		New().Handler().ServeHTTP(rec, req)
+		if rec.Code != 200 {
+			t.Fatalf("%d %s", rec.Code, rec.Body.String())
+		}
+	}
+	for _, c := range []struct {
+		name, model, advisor, want string
+		served                     bool
+	}{
+		{"same provider desktop alias", "relay/claude-sonnet-5-5", relayOpusAlias, "claude-opus-5-5", false},
+		{"same provider desktop alias 1M", "relay/claude-sonnet-5-5", relayOpusAlias + "[1m]", "claude-opus-5-5", false},
+		{"same provider desktop alias effort", "relay/claude-sonnet-5-5", relayOpusAlias + ":high[1m]", "claude-opus-5-5", false},
+		{"same provider shared tier alias", "relay/claude-sonnet-5-5", shared[0], "claude-opus-4-6", false},
+		{"desktop tier pick before restart", "relay/claude-sonnet-5-5", "claude-opus-5-5", "claude-opus-4-6", false},
+		{"other provider desktop alias", "relay/claude-sonnet-5-5", otherOpusAlias, "", true},
+		{"vendor model with desktop alias", "ds/deepseek-v4.1-flash", relayOpusAlias, "", true},
+	} {
+		sendDesktop(advisorTurn(c.model, c.advisor))
+		b := u.last(t)
+		var got []string
+		for _, tl := range gjson.Get(b, "tools").Array() {
+			if strings.HasPrefix(tl.Get("type").String(), "advisor_") {
+				got = append(got, tl.Get("model").String())
+			}
+		}
+		switch {
+		case c.want == "" && len(got) != 0, c.want != "" && (len(got) != 1 || got[0] != c.want):
+			t.Errorf("%s: advisor sent as %q, want %q: %s", c.name, got, c.want, b)
+		}
+		if c.served {
+			if !strings.Contains(b, `"name":"advisor"`) || !strings.Contains(b, "You have access to an `advisor` tool") || strings.Contains(b, advisorGone) {
+				t.Errorf("%s: advisor not offered as magpie's: %s", c.name, b)
+			}
+			continue
+		}
+		advisorSaid(t, c.name, b, true)
 	}
 }
