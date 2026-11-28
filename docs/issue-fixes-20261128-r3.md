@@ -13,6 +13,11 @@ Issue state is checked again immediately before a comment is posted
 | [#7432](https://github.com/yetone/magpie/issues/7432) | Grok Build sessions stay distinct across affinity, plugin calls and remote gateway hops | [fix/7432-grok-session-headers](https://github.com/qq01-hub/magpie/tree/fix/7432-grok-session-headers) | `d211934fd6a177b906e8fad99e90b1a68adb2b39` |
 | [#6456](https://github.com/yetone/magpie/issues/6456) | GLM Coding Plan searches call the renamed `web_search_prime` MCP tool | [fix/6456-glm-search-tool-name](https://github.com/qq01-hub/magpie/tree/fix/6456-glm-search-tool-name) | `2ad2e263141c4af33c152e794c1f9092d3103ae3` |
 | [#7385](https://github.com/yetone/magpie/issues/7385) | OAuth callback ports inside a SPA fragment query are recognized, enabling the paste callback entry | [fix/7385-oauth-fragment-callback](https://github.com/qq01-hub/magpie/tree/fix/7385-oauth-fragment-callback) | `47caa25b0d18c2b9844aff99e94ecbf9a10f1957` |
+| [#6614](https://github.com/yetone/magpie/issues/6614) | Hermes custom-prefixed Magpie providers match their catalog options, profile lifecycle and drift checks | [fix/6614-hermes-custom-magpie](https://github.com/qq01-hub/magpie/tree/fix/6614-hermes-custom-magpie) | `23306813e28de0c4f386c025697607f78b0a637d` |
+| [#7434](https://github.com/yetone/magpie/issues/7434) | AiHubMix's exact unlimited-key sentinel is no longer displayed as an account balance | [fix/7434-aihubmix-unlimited-quota](https://github.com/qq01-hub/magpie/tree/fix/7434-aihubmix-unlimited-quota) | `578672a3d582f133f419539d0864a3bb513c42d9` |
+| [#5330](https://github.com/yetone/magpie/issues/5330) | Plugin accounts are recorded under their provider identity so quota cards follow the account in use | [fix/5330-plugin-served-id](https://github.com/qq01-hub/magpie/tree/fix/5330-plugin-served-id) | `1537f03e5195906d6dbfcadfc5fe48f4e8f8a481` |
+| [#7072](https://github.com/yetone/magpie/issues/7072) | Structured plugin empty replies use the bounded empty-reply retry budget in HTTP and SSE | [fix/7072-plugin-empty-reply-kind](https://github.com/qq01-hub/magpie/tree/fix/7072-plugin-empty-reply-kind) | `eb3a87c20c8a131aea6c88d7d2ce2d778b9fae9c` |
+| [#7091](https://github.com/yetone/magpie/issues/7091) | MCP OAuth discovery tries path-appended AS metadata after RFC/OIDC candidates, parsing each response independently | [fix/7091-mcp-oauth-metadata-path](https://github.com/qq01-hub/magpie/tree/fix/7091-mcp-oauth-metadata-path) | `90a1fc583ec34b5762068e9480015a1a8a24da2d` |
 
 ## Reproduction and checks
 
@@ -38,6 +43,29 @@ go test -tags nogui -run '^(TestForeignReasoningWords|TestForeignSealAzureOtherR
 
 The individual commit messages record the reproduction, test commands and limitations
 Original patch authors retain their credit: yhzang for #7165, Wyman Wen for #7432, zzy7517 for #6456 and isdoge for #7385; MizuIro-H is credited for #8068's root-cause analysis
+
+## Second batch checks
+
+- #6614: the unchanged provider predicate leaves the selected picker value at `deepseek/pro`, instead of the matching `magpie/deepseek/pro` option; the regression passes with normalization
+- #6614: separate temporary configs cover `custom:magpie` and `custom:magpie-anthropic`, main/profile values, entry lookup, model follow, restore, disconnect/reconnect and an unrelated custom provider; four focused top-level tests passed in the independent review
+- #6614: a broader selection also exposed the existing Windows `TestHermesProfileModels` fixture sharing the package's temporary `LOCALAPPDATA` instead of its individual test home; it was left out of the focused passing selection and was not changed by this fix
+- #7434: the old parser renders the unlimited sentinel as `$100000000.00`; the port retains the original author's change and adds numeric/string cases for finite, zero, negative and exact-sentinel values, including the immediate finite neighbors
+- #7434: the balance readers and account management-key path passed, as did the CLI single-card refresh test; no live balance request was made
+- Combined at `39181a4fba1602c7f710185e3eed9ac1d20a1cc0`: all seven selected top-level tests and twelve subtests passed across agent and provider, with zero failures or skips
+- #5330: old code persists a generic `plugin@user` identity that the provider-specific quota card cannot find; after the original author's patch, the right card receives its timestamp and the same user in two plugins remains separate
+- #5330: five provider tests passed under `-race`, plus the tray-follow and menu-bar notification tests; the independent integration review passed all six selected provider/tray tests
+- #5330: old generic identities cannot safely be attributed to a particular plugin and are left to expire; the next answer records the correct plugin-specific identity
+- #7072: unchanged code asks a plugin returning a structured empty reply 15 times in the fixture; after the fix it asks twice, and an ordered group asks its first member once and last member twice
+- #7072: the contributor's substring matcher was shown to mistake unrelated metadata for the error kind and miss JSON whitespace; the supplement parses `error.diagnostics.kind` in JSON and SSE data, including unnamed SSE events, only for busy 5xx statuses
+- #7072: the five new tests and their ten subtests passed under `-race`; the independent integration review passed 12 top-level tests and 19 subtests, covering ordinary errors, authentication, existing empty-reply behavior, group failover and patience limits
+- #7091: old code cannot discover metadata exposed only at the path-appended AS URL; the contributor's fallback completes discovery, client registration, PKCE authorization and token exchange against a loopback fake
+- #7091: a separate regression exposed candidate fields leaking into later responses, producing a false complete metadata record; each candidate now starts empty, and candidate-order and incomplete-response checks pass
+- #7091: the MCP OAuth package passed, both new metadata tests passed under `-race`, and cancellation of an in-flight callback was checked for new and existing sign-ins without saving a token
+- Credits for this batch: OrionRay / bigbitbox for #6614's analysis, Zigzag / GoodbyeAntwerpBlue for #7434, 李群 / jytx for #5330, 陈新 / CodeNovice2017 for #7072 and sean / xinnyu for #7091
+- Final integration at `3a8aa5d88f245416f4c2f2c30e6ff2af7bdef4f3`: 37 top-level tests, 76 tests and subtests across agent, provider, gateway, gui, mcpauth and cli; zero failures and zero skips
+- Windows `go vet ./...`, Linux `go vet -tags nogui ./...`, a GUI-enabled Windows build and a Linux `nogui` build passed for the second batch; changed Go files are formatted and `git diff --check` is clean
+
+Machine-readable results: [second five-fix batch](issue-fixes-20261128-r3-batch2-results.json)
 
 ## Environment and limits
 

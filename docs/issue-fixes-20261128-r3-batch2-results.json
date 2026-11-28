@@ -1,0 +1,38 @@
+{
+  "production_head": "3a8aa5d88f245416f4c2f2c30e6ff2af7bdef4f3",
+  "log": "r3-batch2-final-regressions.jsonl",
+  "tests_and_subtests": 76,
+  "top_level_tests": 37,
+  "passed": 76,
+  "failed": 0,
+  "skipped": 0,
+  "packages": {
+    "github.com/yetone/magpie/internal/provider": {
+      "result": "pass",
+      "seconds": 6.974
+    },
+    "github.com/yetone/magpie/internal/agent": {
+      "result": "pass",
+      "seconds": 10.407
+    },
+    "github.com/yetone/magpie/internal/mcpauth": {
+      "result": "pass",
+      "seconds": 1.011
+    },
+    "github.com/yetone/magpie/internal/gui": {
+      "result": "pass",
+      "seconds": 3.156
+    },
+    "github.com/yetone/magpie/internal/cli": {
+      "result": "pass",
+      "seconds": 5.153
+    },
+    "github.com/yetone/magpie/internal/gateway": {
+      "result": "pass",
+      "seconds": 21.253
+    }
+  },
+  "non_json_lines": 0,
+  "failures": [],
+  "limits": "Selected local regression tests only; no full repository suite or live vendor/client validation"
+}
