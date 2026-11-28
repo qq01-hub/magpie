@@ -1341,10 +1341,15 @@ func openCodeLike(at place, id, name, icon, bin, dir, auth string, ua []string, 
 			},
 		})
 	}
+	var readDirs []string
+	if id == "opencode" {
+		readDirs = []string{"browser"}
+	}
 	return &Agent{
 		ID: id, Name: name, Icon: icon, Aliases: aliases, Spelled: openCodeSpelled(path, at.v1),
 		UA:  ua,
 		Bin: bin, Dir: dir, Path: path,
+		readDirs: readDirs,
 		Check: func() string {
 			if !usesMagpie(get("model"), file().small()) {
 				return ""
