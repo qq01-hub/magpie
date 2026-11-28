@@ -1,0 +1,443 @@
+{
+  "shared": {
+    "client": "192.0.2.1",
+    "seq": 12,
+    "id": 1795879124734,
+    "time": "2026-11-28T23:18:44.7273688+08:00",
+    "agent": "other",
+    "session": "review",
+    "usage": [
+      {
+        "provider": "codex-relay",
+        "model": "gpt-6.2-sol",
+        "in": 500,
+        "out": 5,
+        "cache_read": 2500
+      }
+    ],
+    "model": "group/task",
+    "provider": "claude-relay",
+    "group": {
+      "id": "task",
+      "ref": "group/task",
+      "name": "Task",
+      "routing": "order",
+      "affinity": "",
+      "members": [
+        "claude-relay/claude-sonnet-5-5",
+        "codex-relay/gpt-6.2-sol",
+        "deepseek/deepseek-flash:max",
+        "deepseek/deepseek-flash",
+        "claude-relay/claude-haiku-5-5",
+        "codex-relay/gpt-6.1-terra",
+        "openrouter/deepseek/deepseek-v4.1-flash-1017",
+        "claude-relay/claude-opus-5-5",
+        "codex-relay/gpt-6.2-astra"
+      ],
+      "subs": [
+        {
+          "id": "task-mid",
+          "ref": "group/task-mid",
+          "name": "Task mid",
+          "routing": "order",
+          "in": "task"
+        },
+        {
+          "id": "task-low",
+          "ref": "group/task-low",
+          "name": "Task low",
+          "routing": "order",
+          "in": "task"
+        },
+        {
+          "id": "task-high",
+          "ref": "group/task-high",
+          "name": "Task high",
+          "routing": "order",
+          "in": "task"
+        },
+        {
+          "id": "review",
+          "ref": "group/review",
+          "name": "Review",
+          "routing": "order",
+          "in": "task"
+        }
+      ],
+      "via": [
+        "task-mid",
+        "task-mid",
+        "task-mid",
+        "task-low",
+        "task-low",
+        "task-low",
+        "task-low",
+        "task-high",
+        "task-high"
+      ]
+    },
+    "rule": {
+      "n": 4,
+      "use": "group/review",
+      "when": [
+        "intent \"code review\""
+      ],
+      "turn": 1,
+      "tokens": 4,
+      "classified": {
+        "by": "classifier/cls",
+        "intents": [
+          "coding",
+          "simple questions",
+          "hard problems",
+          "code review"
+        ],
+        "intent": "code review",
+        "said": "4",
+        "ms": 31
+      }
+    },
+    "affinity": {
+      "mode": "",
+      "turn": 1,
+      "at": "0001-01-01T00:00:00Z",
+      "why": "first"
+    },
+    "order": [
+      {
+        "id": "codex-relay",
+        "provider": "codex-relay",
+        "name": "CODEX-RELAY",
+        "kind": "provider",
+        "model": "gpt-6.2-sol",
+        "routing": "",
+        "used": 0,
+        "via": [
+          "review"
+        ]
+      },
+      {
+        "id": "deepseek",
+        "provider": "deepseek",
+        "name": "DEEPSEEK",
+        "kind": "provider",
+        "model": "deepseek-flash",
+        "fixed": "max",
+        "routing": "",
+        "used": 0,
+        "via": [
+          "review"
+        ]
+      },
+      {
+        "id": "claude-relay",
+        "provider": "claude-relay",
+        "name": "CLAUDE-RELAY",
+        "kind": "provider",
+        "model": "claude-opus-5-5",
+        "routing": "",
+        "used": 0,
+        "via": [
+          "review"
+        ]
+      },
+      {
+        "id": "claude-relay",
+        "provider": "claude-relay",
+        "name": "CLAUDE-RELAY",
+        "kind": "provider",
+        "model": "claude-sonnet-5-5",
+        "routing": "",
+        "used": 0,
+        "via": [
+          "task-mid"
+        ]
+      },
+      {
+        "id": "deepseek",
+        "provider": "deepseek",
+        "name": "DEEPSEEK",
+        "kind": "provider",
+        "model": "deepseek-flash",
+        "routing": "",
+        "used": 0,
+        "via": [
+          "task-low"
+        ]
+      },
+      {
+        "id": "claude-relay",
+        "provider": "claude-relay",
+        "name": "CLAUDE-RELAY",
+        "kind": "provider",
+        "model": "claude-haiku-5-5",
+        "routing": "",
+        "used": 0,
+        "via": [
+          "task-low"
+        ]
+      },
+      {
+        "id": "codex-relay",
+        "provider": "codex-relay",
+        "name": "CODEX-RELAY",
+        "kind": "provider",
+        "model": "gpt-6.1-terra",
+        "routing": "",
+        "used": 0,
+        "via": [
+          "task-low"
+        ]
+      },
+      {
+        "id": "openrouter",
+        "provider": "openrouter",
+        "name": "OPENROUTER",
+        "kind": "provider",
+        "model": "deepseek/deepseek-v4.1-flash-1017",
+        "routing": "",
+        "used": 0,
+        "via": [
+          "task-low"
+        ]
+      },
+      {
+        "id": "codex-relay",
+        "provider": "codex-relay",
+        "name": "CODEX-RELAY",
+        "kind": "provider",
+        "model": "gpt-6.2-astra",
+        "routing": "",
+        "used": 0,
+        "via": [
+          "task-high"
+        ]
+      }
+    ],
+    "tries": [
+      {
+        "id": "codex-relay",
+        "model": "gpt-6.2-sol",
+        "start": "2026-11-28T23:18:44.7862879+08:00",
+        "done": true,
+        "status": 200,
+        "ms": 1,
+        "net": {
+          "own": 0.6,
+          "asks": 1,
+          "connect": 0.5,
+          "send": 0.6,
+          "head": 1.7
+        }
+      }
+    ],
+    "done": true,
+    "status": 200,
+    "ms": 60,
+    "tokens": 3005,
+    "out": 5,
+    "bytes": 218,
+    "contentAt": 1795879124787,
+    "prompt": {
+      "tokens": 3000,
+      "counted": true,
+      "turns": 1,
+      "parts": [
+        {
+          "kind": "chat",
+          "tokens": 3000,
+          "items": [
+            {
+              "name": "1",
+              "tag": "turn",
+              "tokens": 3000
+            }
+          ]
+        }
+      ]
+    },
+    "responseId": "x"
+  },
+  "nested": {
+    "client": "192.0.2.1",
+    "seq": 7,
+    "id": 1795879125123,
+    "time": "2026-11-28T23:18:45.1030644+08:00",
+    "agent": "other",
+    "session": "nested",
+    "usage": [
+      {
+        "provider": "a",
+        "model": "alpha",
+        "in": 500,
+        "out": 5,
+        "cache_read": 2500
+      }
+    ],
+    "model": "group/outer",
+    "provider": "a",
+    "group": {
+      "id": "outer",
+      "ref": "group/outer",
+      "name": "Outer",
+      "routing": "order",
+      "affinity": "",
+      "members": [
+        "a/alpha",
+        "b/beta",
+        "c/gamma"
+      ],
+      "subs": [
+        {
+          "id": "first",
+          "ref": "group/first",
+          "name": "First",
+          "routing": "order",
+          "in": "outer"
+        },
+        {
+          "id": "review",
+          "ref": "group/review",
+          "name": "Review",
+          "routing": "order",
+          "in": "outer",
+          "rules": 1
+        },
+        {
+          "id": "inner",
+          "ref": "group/inner",
+          "name": "Inner",
+          "routing": "order",
+          "in": "review",
+          "rules": 1
+        }
+      ],
+      "via": [
+        "first",
+        "first",
+        ""
+      ]
+    },
+    "rule": {
+      "n": 1,
+      "use": "group/review",
+      "when": [
+        "tokens ≥ 1"
+      ],
+      "turn": 1,
+      "tokens": 4
+    },
+    "nested": [
+      {
+        "group": "review",
+        "name": "Review",
+        "rule": {
+          "n": 1,
+          "use": "group/inner",
+          "when": [
+            "tokens ≥ 1"
+          ],
+          "turn": 1,
+          "tokens": 4
+        }
+      },
+      {
+        "group": "inner",
+        "name": "Inner",
+        "rule": {
+          "n": 1,
+          "use": "a/alpha",
+          "when": [
+            "tokens ≥ 1"
+          ],
+          "turn": 1,
+          "tokens": 4
+        }
+      }
+    ],
+    "affinity": {
+      "mode": "",
+      "turn": 1,
+      "at": "0001-01-01T00:00:00Z",
+      "why": "first"
+    },
+    "order": [
+      {
+        "id": "a",
+        "provider": "a",
+        "name": "A",
+        "kind": "provider",
+        "model": "alpha",
+        "routing": "",
+        "used": 0,
+        "via": [
+          "review",
+          "inner"
+        ]
+      },
+      {
+        "id": "b",
+        "provider": "b",
+        "name": "B",
+        "kind": "provider",
+        "model": "beta",
+        "routing": "",
+        "used": 0,
+        "via": [
+          "review",
+          "inner"
+        ]
+      },
+      {
+        "id": "c",
+        "provider": "c",
+        "name": "C",
+        "kind": "provider",
+        "model": "gamma",
+        "routing": "",
+        "used": 0
+      }
+    ],
+    "tries": [
+      {
+        "id": "a",
+        "model": "alpha",
+        "start": "2026-11-28T23:18:45.1228509+08:00",
+        "done": true,
+        "status": 200,
+        "ms": 1,
+        "net": {
+          "own": 1,
+          "asks": 1,
+          "head": 1
+        }
+      }
+    ],
+    "done": true,
+    "status": 200,
+    "ms": 21,
+    "tokens": 3005,
+    "out": 5,
+    "bytes": 208,
+    "contentAt": 1795879125124,
+    "prompt": {
+      "tokens": 3000,
+      "counted": true,
+      "turns": 1,
+      "parts": [
+        {
+          "kind": "chat",
+          "tokens": 3000,
+          "items": [
+            {
+              "name": "1",
+              "tag": "turn",
+              "tokens": 3000
+            }
+          ]
+        }
+      ]
+    },
+    "responseId": "x"
+  }
+}
