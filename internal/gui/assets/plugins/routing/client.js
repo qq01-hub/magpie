@@ -3059,6 +3059,19 @@ function routingPage(part) {
       // its way down: its route's heading, then the groups in the group
       row.path = ways ? [wayAt.get(id), ...(row.w.via || [])] : row.w.via || [];
     }
+    // A rule can choose a shared member's later place while the stage's
+    // original member order still puts that model after another sibling.
+    // Keep each path together so every model stands under its own heading.
+    const together = (xs, depth = 0) => {
+      const at = new Map();
+      for (const id of xs) {
+        const key = rows.get(id).path[depth] ?? Symbol();
+        if (!at.has(key)) at.set(key, []);
+        at.get(key).push(id);
+      }
+      return [...at.values()].flatMap((run) => run.length > 1 ? together(run, depth + 1) : run);
+    };
+    together(ids).forEach((id, i) => { ids[i] = id; });
     // a group in the group heads its models, which it routes by its own
     // routing, set in under it
     // keys or accounts side by side that fold together, FOLD_AT or more

@@ -1,5 +1,13 @@
 # Dropdown browser regression
 
+`routing-shared-groups.test.cjs` renders actual Handler trace fixtures for
+#7221's four groups, whose Review group shares all its models with earlier
+siblings, and a nested rule through Outer → Review → Inner. It checks all
+four headings, exactly nine model rows, the chosen shared members' folds,
+and nested ancestors at 1100px and 420px in all five languages on Chromium
+and WebKit. The APIs are isolated; `ARTIFACT_DIR` retains Chinese screenshots
+from both engines and widths.
+
 `agent-details-ready.test.cjs` holds the first settings read and the lazy
 Long conversations module on the main window's Agents → Details path. It
 checks a complete first and warm opening without a final height jump in all

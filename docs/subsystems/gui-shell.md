@@ -295,6 +295,11 @@ A group in the group's heading (`li.rt-sub`, `subNode`) folds the same way
 (`toggleSub`): folded, it says how many it routes to and what they do
 together, a request to any seat under it flies to the heading
 (`row.shut`), and its wire is the last one drawn (`wiresTo`).
+The stage keeps models with the same ancestor path together (`rebuild`),
+so a rule choosing a shared model's later group leaves that model under
+the chosen heading instead of a sibling's. The original member order is
+kept within each path; execution order is unchanged. See
+`routing-shared-groups.test.cjs`.
 
 Keys start folded. Accounts and group-in-group headings start open when
 they hold fewer than `LONG` (6), folded otherwise (Aiirobyte on Discord: a
