@@ -6539,9 +6539,11 @@ magpie.plugin("library", (ctx) => {
   function newSkillRow(n) {
     const row = el("div", "row lib-row lib-newskill");
     const who = el("div", "who");
-    who.append(el("div", "name", n.name));
-    const sub = el("div", "sub", n.description || "");
-    sub.title = n.description || "";
+    const name = el("div", "name", n.displayName || n.name);
+    if (skillProblem(n)) name.append(frontmatterTag(n));
+    who.append(name);
+    const sub = el("div", "sub", skillProblem(n) || n.description || "");
+    sub.title = skillProblem(n) || n.description || "";
     who.append(sub);
     const src = el("div", "lib-src");
     if (n.kind === "folder") {
@@ -7746,9 +7748,10 @@ magpie.plugin("library", (ctx) => {
       const n = el("div", "name", s.name);
       const problem = p.problems?.[s.name];
       if (problem) n.append(tag(t("Not placed"), "warn", problem));
+      else if (skillProblem(s)) n.append(frontmatterTag(s));
       w.append(n);
-      const sub = el("div", "sub", problem || s.description || "");
-      sub.title = problem || s.description || "";
+      const sub = el("div", "sub", problem || skillProblem(s) || s.description || "");
+      sub.title = problem || skillProblem(s) || s.description || "";
       w.append(sub);
       const on = p.skills[s.name] || [];
       // an agent reading the same folder as one that has it has it too
@@ -8969,7 +8972,7 @@ magpie.plugin("library", (ctx) => {
       list.replaceChildren();
       const q = p.filter.toLowerCase();
       for (const x of c) {
-        if (q && !(x.name + " " + x.description).toLowerCase().includes(q)) continue;
+        if (q && !((x.displayName || x.name) + " " + x.description).toLowerCase().includes(q)) continue;
         const r = el("label", "lib-pick" + (x.have ? " dim" : ""));
         const cb = el("input");
         cb.type = "checkbox";
@@ -8977,7 +8980,9 @@ magpie.plugin("library", (ctx) => {
         cb.disabled = x.have;
         cb.onchange = () => { if (cb.checked) p.pick.add(x.path); else p.pick.delete(x.path); syncGo(); };
         const w = el("span", "who");
-        w.append(el("span", "name", x.name), el("span", "sub", x.description || x.path || ""));
+        const name = el("span", "name", x.displayName || x.name);
+        if (skillProblem(x)) name.append(frontmatterTag(x));
+        w.append(name, el("span", "sub", x.description || x.path || ""));
         r.append(cb, w);
         // another skill from elsewhere has its name (mora1n on Discord):
         // this one is in the library, or goes in beside it, by its own
@@ -9061,6 +9066,7 @@ magpie.plugin("library", (ctx) => {
     }
     // synced in by its source and not fetched here yet (#5715)
     if (s.pending) nm.append(tag(t("Not fetched yet"), "warn lib-pending", t("Not fetched on this computer yet: Update tries again")));
+    if (skillProblem(s)) nm.append(frontmatterTag(s));
     if (s.manual) nm.append(manualTag(s.name));
     if (lib.skillRouter && s.router === "direct" && !s.manual) nm.append(tag(t("Not through the router"), "lib-direct", t("Each agent is given it as its own skill, as with the skill router off.")));
     // turned off on this computer alone: no agent here gets it, the ticks
@@ -9488,6 +9494,14 @@ magpie.plugin("library", (ctx) => {
     return tag(t("Manual only"), "lib-manual", t("Its SKILL.md sets disable-model-invocation: Claude Code runs it only when you type /{name}, never on its own.", { name }));
   }
 
+  function skillProblem(s) {
+    return s?.frontmatterError ? t("SKILL.md front matter could not be read; its folder name is shown and its metadata is ignored") : "";
+  }
+
+  function frontmatterTag(s) {
+    return tag(t("Front matter unreadable"), "warn", skillProblem(s));
+  }
+
   // What the agents have and the library doesn't is a list to go through,
   // not the page: a long one shows its first few rows and how many more
   // there are, so it doesn't push everything under it a screen down
@@ -9519,10 +9533,11 @@ magpie.plugin("library", (ctx) => {
     const row = el("div", "row lib-row lib-found");
     const who = el("div", "who");
     const nm = el("div", "name", f.name);
+    if (skillProblem(f)) nm.append(frontmatterTag(f));
     if (f.manual) nm.append(manualTag(f.name));
     who.append(nm);
-    const sub = el("div", "sub", f.description || "");
-    sub.title = f.description || "";
+    const sub = el("div", "sub", skillProblem(f) || f.description || "");
+    sub.title = skillProblem(f) || f.description || "";
     who.append(sub);
     // put in the library's own folder by hand, not listed by it (#595)
     if (f.library) { const src = el("div", "lib-src"); src.append(el("span", "", t("in the library's folder, not listed")), pathLink(f.library)); who.append(src); }
@@ -10343,7 +10358,8 @@ magpie.plugin("library", (ctx) => {
     ed.append(bar);
     // the rows: the repository's skills once fetched, else the list's
     const rows = () => r.found
-      ? r.found.candidates.map((c) => ({ key: c.path, name: c.name, sub: c.description || c.path || "", have: c.have, as: c.as }))
+      ? r.found.candidates.map((c) => ({ key: c.path, name: c.name, displayName: c.displayName || c.name, description: c.description,
+        frontmatterError: c.frontmatterError, sub: c.description || c.path || "", have: c.have, as: c.as }))
       : g.skills.map((x) => ({ key: "m:" + x.skillId, name: x.name, sub: x.description || "", have: !!x.have, as: x.have && x.have !== x.name ? x.have : "" }));
     const syncGo = () => { const n = r.pick.size; go.textContent = n === 1 ? t("Install 1 skill") : t("Install {n} skills", { n }); go.disabled = !n; };
     const list = el("div", "lib-picks");
@@ -10351,7 +10367,7 @@ magpie.plugin("library", (ctx) => {
       list.replaceChildren();
       const q = r.filter.toLowerCase();
       for (const x of rows()) {
-        if (q && !(x.name + " " + x.sub).toLowerCase().includes(q)) continue;
+        if (q && !((x.displayName || x.name) + " " + x.name + " " + x.sub).toLowerCase().includes(q)) continue;
         const row = el("label", "lib-pick" + (x.have ? " dim" : ""));
         const cb = el("input");
         cb.type = "checkbox";
@@ -10359,7 +10375,9 @@ magpie.plugin("library", (ctx) => {
         cb.disabled = x.have;
         cb.onchange = () => { if (cb.checked) r.pick.add(x.key); else r.pick.delete(x.key); draw(); };
         const w = el("span", "who");
-        w.append(el("span", "name", x.name), el("span", "sub", x.sub));
+        const name = el("span", "name", x.displayName || x.name);
+        if (skillProblem(x)) name.append(frontmatterTag(x));
+        w.append(name, el("span", "sub", x.sub));
         row.append(cb, w);
         if (x.have && x.as) row.append(tag(t("In the library as {name}", { name: x.as }), "lib-as", t("In the library as {name}", { name: x.as })));
         else if (x.have) row.append(tag(t("in the library"), ""));
