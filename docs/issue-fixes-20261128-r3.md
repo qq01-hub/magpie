@@ -23,6 +23,11 @@ Issue state is checked again immediately before a comment is posted
 | [#4028](https://github.com/yetone/magpie/issues/4028) | Provider imports accept single-label LAN names with ports and IPv6 literals, preserving URL validation and gateway loop prevention | [fix/4028-lan-host-url](https://github.com/qq01-hub/magpie/tree/fix/4028-lan-host-url) | `04d9c78e649e849afa926c6edd6558ce63f512b3` |
 | [#2690](https://github.com/yetone/magpie/issues/2690) | Codex titles drop localized labels and read localized JSON fields with deterministic precedence | [fix/2690-codex-title-labels](https://github.com/qq01-hub/magpie/tree/fix/2690-codex-title-labels) | `9baab8957866d611b6c490a7d4e8b213168d468a` |
 | [#6148](https://github.com/yetone/magpie/issues/6148) | vLLM grammar-format custom-tool refusals use the existing same-Responses-API translation | [fix/6148-custom-tool-grammar](https://github.com/qq01-hub/magpie/tree/fix/6148-custom-tool-grammar) | `2b8a1ea8e295d57fd7cfe62fae7c57c491d9b1ea` |
+| [#4312](https://github.com/yetone/magpie/issues/4312) | An empty implicit DSH Web profile yields to a configured profile, while explicit leads and shared start settings keep precedence | [fix/4312-dsh-configured-profile](https://github.com/qq01-hub/magpie/tree/fix/4312-dsh-configured-profile) | `8df2ebf618aac72e5309a38397ce74dc88672f1f` |
+| [#7564](https://github.com/yetone/magpie/issues/7564) | Named host and WSL OMP profiles receive Library resources in their own directories, with version-aware shared skills | [fix/7564-omp-profile-target](https://github.com/qq01-hub/magpie/tree/fix/7564-omp-profile-target) | `5546f31dbc34149c533c2ce0f3dba185849cf310` |
+| [#7019](https://github.com/yetone/magpie/issues/7019) | Client-run tool search converts whole-number floats before handing the call to Codex | [fix/7019-tool-search-float-args](https://github.com/qq01-hub/magpie/tree/fix/7019-tool-search-float-args) | `4cf37fe9668a96b93715f1e8856043a16257e9e7` |
+| [#2815](https://github.com/yetone/magpie/issues/2815) | Claude Code installed with Homebrew's latest cask gets its own channel's update | [fix/2815-claude-brew-latest](https://github.com/qq01-hub/magpie/tree/fix/2815-claude-brew-latest) | `b2b8ba80cf8a3406668f501c692b84a2f2b7a07e` |
+| [#7431](https://github.com/yetone/magpie/issues/7431) | Qwen Code receives Library MCP servers and tool exclusions in its settings file | [fix/7431-qwen-library-target](https://github.com/qq01-hub/magpie/tree/fix/7431-qwen-library-target) | `75c2e408c2fc7d8d32ac3807e7d5f409cb13e19c` |
 
 ## Reproduction and checks
 
@@ -101,6 +106,29 @@ Machine-readable results: [second five-fix batch](issue-fixes-20261128-r3-batch2
 - Windows `go vet ./...`, Linux `go vet -tags nogui ./...`, a GUI-enabled Windows build and a Linux `nogui` build passed for the third batch; changed Go files are formatted and `git diff --check` is clean
 
 Machine-readable results: [third five-fix batch](issue-fixes-20261128-r3-batch3-results.json)
+
+## Fourth batch checks
+
+- #4312: the old reader returns an empty model and effort and the Web path when Web is an empty template and Desktop has a start model
+- #4312: the selected read profile now supplies the model, effort, path, Joined and Check; explicit leads, nonempty or unreadable Web files, shared settings and home patches retain precedence, and writes keep Web-first order
+- #4312: 21 top-level tests and 31 tests/subtests passed in the independent integration review, including the prior #5229 duplicate-entry fix, home overrides, restore and sibling-profile diagnostics
+- #7564: both host and WSL named-profile target lookups return nil on the old code; the new tests perform real instruction, MCP and skill writes in temporary profile directories
+- #7564: six integration tests passed, covering custom PI_CONFIG_DIR, separate base/work/lab profiles, preservation of user instructions, old/current/unknown OMP versions, and a fake WSL probe whose version is independent of the host
+- #7564: the extra TestEveryAgentInLibrary guard fails for an unrelated DS Bot target on both the fixed base and this branch; that baseline failure is recorded separately and not counted as a passing check
+- #7019: the old relayed Responses path hands Codex limit:8.0 under whole, byte and decimal-boundary stream cuts; normalization at tool_search_call creation returns limit:8 in each case
+- #7019: translated Chat controls, fractional numbers, numbers inside query strings, a string-valued limit and raw custom-tool inputs retain their existing behavior; the targeted race run passed
+- #7019: non-streaming Responses passthrough remains outside searchTidy and is unchanged by this fix; the local tests do not establish live Codex or MCP service behavior
+- #2815: the old CLI reader recognizes the installed version in a fake latest-channel Caskroom but offers no updater; the new end-to-end reader test obtains the latest version and the command brew upgrade --cask claude-code@latest
+- #2815: the original TestHowInstalled has its existing Unix-symlink skip on Windows; the added isolated test runs on this host and executes no brew, installer or real client
+- #7019 and #2815: their combined integration review passed 15 top-level tests and 25 tests/subtests, including tool-search rendering, IDs, custom input and CLI version parsing
+- #7431: the original Qwen target has no MCP path; the port writes HTTP, SSE and command servers to the existing settings file and carries disabled tools in excludeTools
+- #7431: tests cover aliases, preserved user settings/comments/servers, same-name adoption, removal, environment references, fake WSL and actual writes after QWEN_HOME changes with the old file unchanged
+- Credits: Junfei-Z for #4312, bsbandwl for #7564's source analysis, timonwong for #7019, GinWU for #2815 and Wyman Wen for #7431
+- Upstream was inspected again at 1038298ffabb167600a2afe8ddb4a165a2794541; the affected production logic remains present there, and the intervening Claude artifact-rule change is separate from Qwen's MCP format selection
+- Final integration at `efa5a1a23b63a67cba53b9a94c03f1eb55271993`: 46 top-level tests and 66 tests/subtests across agent, library and gateway passed, with zero failures and zero skips
+- Windows `go vet ./...`, Linux `go vet -tags nogui ./...`, a GUI-enabled Windows build and a Linux `nogui` build passed for the fourth batch; changed Go files are formatted and `git diff --check` is clean
+
+Machine-readable results: [fourth five-fix batch](issue-fixes-20261128-r3-batch4-results.json)
 
 ## Environment and limits
 
