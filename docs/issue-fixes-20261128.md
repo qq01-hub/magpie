@@ -34,7 +34,7 @@
 | #7960 | 切换 tier 丢失 opaque，旧缓存冲突时取到 sibling 而非当前 tier，前缀别名也有同类问题 | 10 个顶层相关测试和 5 个子测试通过，包含真实本地 HTTP 请求和协议翻译路径 |
 | #7939 | 33554444 字节的 socket 请求仍整份复制 | 三个 body ownership / limit 测试通过 race，另 42 个相关顶层 socket/request/unrouted 测试通过 |
 | #8019 | 三个索引命令在特殊路径和链接入口下缺少生成文件，链接 credits 命令意外返回成功 | Node 24.22.3 定向 27 项全部通过，完整 site 套件为 176 通过、33 失败，33 项均属于 Windows 上的 Unix installer fixture，原基线同名 33 项也失败 |
-| #7992 | 14 个技能仍被截到 40 字符档位且预算闲置，35 短描述加 8 长描述退化成只列名称 | 七项 RouterDesc 测试在独立分支及整合代码 `8a294c0cf` 上全部通过，覆盖 Unicode、80 rune 上限和名称溢出；更广的 Library 回归在 Windows 的既有 `TestSkillRouterUnnamedInView` 处达到四分钟套件超时，未计为通过 |
+| #7992 | 14 个技能仍被截到 40 字符档位且预算闲置，35 短描述加 8 长描述退化成只列名称 | 七项 RouterDesc 测试在独立分支及整合代码 `8a294c0cf` 上全部通过，覆盖 Unicode、80 rune 上限和名称溢出；较广的 Library 回归曾达到四分钟套件超时，其中 `TestSkillRouterUnnamedInView` 随后在整合代码上单独运行通过，耗时 214.05 秒，该单项结果不代表整个 Library 套件通过 |
 
 说明：#7777 提交正文中边界红测的 “on the base” 指作者补丁上的边界版本，原始主干复现与作者补丁补强是两个独立失败记录
 
