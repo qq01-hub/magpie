@@ -1583,6 +1583,11 @@ func (s *Server) restAfterMarked(c candidate, status int, header http.Header, bo
 	now := time.Now()
 	d := fallbackCooldown
 	why := failureOf(c, status, body)
+	if imageSizeLimitRefused(status, body) {
+		// The provider is fine for smaller images; only this request's image
+		// exceeds its limit, so a group may try a sibling without cooling it.
+		return Rest{Why: why, Status: status, By: "off", Until: now}
+	}
 	if why == failOther && azureSuspended(c, status) {
 		// an Azure key that answered before, refused 401: its
 		// subscription disabled for its credit spent, back when Azure

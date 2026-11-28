@@ -1938,6 +1938,19 @@ var zenModelGone = lazyre.New(`(^|[\s:"])Model [^"\s]+ is not supported("|\s*$)`
 // line).
 var refusedWords = lazyre.New(`(?i)unapproved channel|illegal api invocation|system prompt carries another agent's identity line`)
 
+// imageSizeLimitWords are a member's per-image or image-payload size cap,
+// not a request-shape, image-format or model-context refusal.
+var imageSizeLimitWords = lazyre.New(`(?i)\b(?:images?|pictures?|photos?)\b[^.!?\r\n]{0,40}\b(?:larger than|too large|exceed(?:s|ed)?|over)\b[^.!?\r\n]{0,30}\b\d+(?:\.\d+)?\s*(?:bytes?|b|[kmgt]i?b|kilobytes?|megabytes?|gigabytes?)\b|\b(?:maximum|max)\b[^.!?\r\n]{0,30}\b(?:images?|pictures?|photos?)\b[^.!?\r\n]{0,25}\b(?:size|payload)\b|\b(?:images?|pictures?|photos?)\b[^.!?\r\n]{0,25}\b(?:size|payload|file size)\b[^.!?\r\n]{0,35}\b(?:limit|max(?:imum)?)\b|\b(?:images?|pictures?|photos?)\b[^.!?\r\n]{0,25}\b(?:size|payload)\b[^.!?\r\n]{0,25}\b(?:exceed(?:s|ed)?|over)\b[^.!?\r\n]{0,25}\b\d+(?:\.\d+)?\s*(?:bytes?|b|[kmgt]i?b|kilobytes?|megabytes?|gigabytes?)\b`)
+
+// imageSizeLimitRefused identifies only an upstream image-size limit that a
+// sibling provider may accept. Context overflows keep their existing path.
+func imageSizeLimitRefused(status int, body []byte) bool {
+	if status != http.StatusBadRequest && status != http.StatusRequestEntityTooLarge || tooLong(status, string(wordsOf(body))) {
+		return false
+	}
+	return imageSizeLimitWords.MatchString(provider.VendorWords(body))
+}
+
 // promptRefused says a vendor answered with that refusal: the agent's
 // prompt, not the account, is at fault.
 func promptRefused(status int, body []byte) bool {
@@ -2224,6 +2237,10 @@ func retryable(status int, body []byte) bool {
 		// another provider in the group can still serve the request
 		// (#7774); riskRefused keeps sibling accounts of the same
 		// provider out
+		return true
+	case imageSizeLimitRefused(status, body):
+		// An upstream image-size cap is specific to this member: a sibling
+		// may accept the same image without resting this one.
 		return true
 	case status >= 400 && status < 500 && failure(status, raw) == failCredit:
 		// out of credit, as failure reads it, whatever the status: another
