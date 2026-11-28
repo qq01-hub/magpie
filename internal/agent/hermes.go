@@ -154,6 +154,7 @@ func hermesIn(at place) *Agent {
 			// the entry of magpie's the model is under, at the address
 			// for its API
 			ep := getKey("model.provider")
+			ep = hermesProviderName(ep)
 			mode, _ := hermesModeIn(path, ep)
 			get := func(k string) (string, bool) {
 				v, ok := edit.GetYAML(path, "providers."+ep+"."+k)
@@ -797,8 +798,15 @@ type hermesProviderEntry struct {
 // Anthropic-compatible gateway").
 const hermesAnthropicID = magpieID + "-anthropic"
 
+// hermesProviderName is the provider entry name Hermes reads after its
+// optional custom: prefix.
+func hermesProviderName(p string) string { return strings.TrimPrefix(p, "custom:") }
+
 // hermesOurs is whether a model.provider is one of magpie's entries
-func hermesOurs(p string) bool { return p == magpieID || p == hermesAnthropicID }
+func hermesOurs(p string) bool {
+	p = hermesProviderName(p)
+	return p == magpieID || p == hermesAnthropicID
+}
 
 // hermesMode is each entry's api_mode as magpie writes it
 var hermesMode = map[string]string{magpieID: "chat_completions", hermesAnthropicID: "anthropic_messages"}

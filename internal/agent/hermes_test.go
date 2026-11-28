@@ -130,6 +130,142 @@ func TestHermes(t *testing.T) {
 	}
 }
 
+func TestHermesCustomMagpieProvider(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+	t.Setenv("HERMES_HOME", filepath.Join(home, ".hermes"))
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, ".config"))
+	t.Setenv("XDG_CACHE_HOME", filepath.Join(home, ".cache"))
+	if err := provider.Save(provider.Provider{ID: "deepseek", Name: "DeepSeek", Chat: "https://api.deepseek.com/v1", Key: "k", Models: []string{"pro", "flash"}}); err != nil {
+		t.Fatal(err)
+	}
+	root := appdir.HermesHomeIn(home)
+	write := func(rel, contents string) string {
+		p := filepath.Join(root, rel)
+		if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(p, []byte(contents), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		return p
+	}
+	main := write("config.yaml", "model:\n  default: kimi-k3\n  provider: moonshot\nproviders:\n  moonshot:\n    base_url: https://api.moonshot.ai/v1\n    api_key: sk-moonshot\n")
+	coder := write("profiles/coder/config.yaml", "model:\n  default: kimi-k3\n  provider: moonshot\nproviders:\n  moonshot:\n    base_url: https://api.moonshot.ai/v1\n    api_key: sk-moonshot\n")
+	a := hermes(home)
+	if err := a.Apply("model", "magpie/deepseek/pro"); err != nil {
+		t.Fatal(err)
+	}
+	if err := a.Apply("profile:coder", "magpie/deepseek/pro"); err != nil {
+		t.Fatal(err)
+	}
+	// Hermes can serialize its configured provider with the custom: prefix
+	if err := edit.SetYAML(main, edit.KV{Path: "model.provider", Value: "custom:magpie"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := edit.SetYAML(coder, edit.KV{Path: "model.provider", Value: "custom:magpie"}); err != nil {
+		t.Fatal(err)
+	}
+	writer := write("profiles/writer/config.yaml", "model:\n  default: deepseek/pro\n  provider: custom:magpie\n")
+	a = hermes(home)
+	if got := a.Field("model").Get(); got != "magpie/deepseek/pro" {
+		t.Fatalf("connected picker value: got %q, want magpie/deepseek/pro", got)
+	}
+	if got := a.Field("profile:coder").Get(); got != "magpie/deepseek/pro" {
+		t.Fatalf("profile picker value: got %q, want magpie/deepseek/pro", got)
+	}
+	if got := a.Check(); got != "" {
+		t.Fatalf("custom provider config drift: %s", got)
+	}
+	for _, p := range []string{magpieID, hermesAnthropicID, "custom:" + magpieID, "custom:" + hermesAnthropicID} {
+		if !hermesOurs(p) {
+			t.Errorf("hermesOurs(%q) = false, want true", p)
+		}
+	}
+	for _, p := range []string{"custom:other", "custom:magpie-extra", "magpie-custom", "other"} {
+		if hermesOurs(p) {
+			t.Errorf("hermesOurs(%q) = true, want false", p)
+		}
+	}
+
+	if err := a.Apply("model", "magpie/deepseek/flash"); err != nil {
+		t.Fatal(err)
+	}
+	if got := hermesModelOf(writer); got.Provider != magpieID || got.Default != "deepseek/flash" {
+		t.Fatalf("seeded profile after model switch: got %+v, want magpie/deepseek/flash", got)
+	}
+	if err := a.Apply("profile:coder", "kimi-k3.5"); err != nil {
+		t.Fatal(err)
+	}
+	if got := hermesModelOf(coder); got.Provider != "moonshot" || got.Default != "kimi-k3.5" {
+		t.Fatalf("profile after restoring its own model: got %+v, want moonshot/kimi-k3.5", got)
+	}
+	if err := a.Disconnect(); err != nil {
+		t.Fatal(err)
+	}
+	if got := hermesModelOf(writer); got.Provider != "moonshot" || got.Default != "kimi-k3" {
+		t.Fatalf("seeded profile after disconnect: got %+v, want moonshot/kimi-k3", got)
+	}
+	if err := hermes(home).Connect(); err != nil {
+		t.Fatal(err)
+	}
+	if got := hermesModelOf(writer); got.Provider != magpieID || got.Default != "deepseek/flash" {
+		t.Fatalf("seeded profile after reconnect: got %+v, want magpie/deepseek/flash", got)
+	}
+}
+
+func TestHermesCustomMagpieAnthropicProvider(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+	t.Setenv("HERMES_HOME", filepath.Join(home, ".hermes"))
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, ".config"))
+	t.Setenv("XDG_CACHE_HOME", filepath.Join(home, ".cache"))
+	at := here(home)
+	model := "anthropic/claude-sonnet-4-5"
+	for _, m := range sharedModels("hermes") {
+		if hermesOnMessages(m) {
+			model = m.ID
+			break
+		}
+	}
+	root := appdir.HermesHomeIn(home)
+	write := func(rel, contents string) string {
+		p := filepath.Join(root, rel)
+		if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(p, []byte(contents), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		return p
+	}
+	entry := "providers." + hermesAnthropicID
+	config := "model:\n  default: " + model + "\n  provider: custom:" + hermesAnthropicID + "\n" +
+		"providers:\n  " + hermesAnthropicID + ":\n    base_url: " + hermesBase(at.gw(), "anthropic_messages") +
+		"\n    api_key: " + at.gwKey() + "\n    api_mode: anthropic_messages\n    models:\n      - " + model + "\n"
+	main := write("config.yaml", config)
+	write("profiles/coder/config.yaml", config)
+	write("profiles/unrelated/config.yaml", "model:\n  default: local/model\n  provider: custom:other\nproviders:\n  other:\n    base_url: http://127.0.0.1:9000/v1\n")
+	a := hermes(home)
+	if got := a.Field("model").Get(); got != "magpie/"+model {
+		t.Fatalf("connected picker value: got %q, want magpie/%s", got, model)
+	}
+	if got := a.Field("profile:coder").Get(); got != "magpie/"+model {
+		t.Fatalf("profile picker value: got %q, want magpie/%s", got, model)
+	}
+	if got := a.Field("profile:unrelated").Get(); got != "local/model" {
+		t.Fatalf("unrelated custom provider picker value: got %q, want local/model", got)
+	}
+	if got := a.Check(); got != "" {
+		t.Fatalf("custom Anthropic provider config drift: %s", got)
+	}
+	if v, ok := edit.GetYAML(main, entry+".base_url"); !ok || v != hermesBase(at.gw(), "anthropic_messages") {
+		t.Fatalf("custom Anthropic base URL: got %q, exists %v", v, ok)
+	}
+}
+
 // Each of Hermes's bots is a profile under ~/.hermes/profiles/<name> with a
 // config.yaml of its own, which doesn't read the main one's: connected,
 // magpie is offered in every bot's picker, each keeps its own model, and
