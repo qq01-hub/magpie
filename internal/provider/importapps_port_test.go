@@ -29,6 +29,11 @@ func TestGatewayURLOnSettingsPort(t *testing.T) {
 	if !is("http://127.0.0.1:3591/v1") || !is("http://localhost:3591") || !is("http://[::1]:3591/v1") || !is("http://[::ffff:127.0.0.1]:3591/v1") || is("http://127.0.0.1:3425/v1") || is("http://10.0.0.2:3591") {
 		t.Fatal("Settings' port")
 	}
+	for _, base := range []string{"http://[::1]:3591/v1", "http://[::ffff:127.0.0.1]:3591/v1"} {
+		if _, skip := imported("magpie", "sk-x", endpoints{responses: base}, nil); skip != "it points at magpie itself" {
+			t.Errorf("imported(%q) skip = %q, want magpie loop prevention", base, skip)
+		}
+	}
 	t.Setenv("MAGPIE_ADDR", "127.0.0.1:3426")
 	if !is("http://127.0.0.1:3426") {
 		t.Fatal("MAGPIE_ADDR's port")
@@ -41,8 +46,17 @@ func TestImportedAcceptsLANPortAndIPv6(t *testing.T) {
 	}{
 		{name: "single-label LAN host", base: "http://codex-relay:8080/v1"},
 		{name: "IPv6 literal", base: "http://[fd00::5]:8080/v1"},
+		{name: "port lower boundary", base: "http://codex-relay:1/v1"},
+		{name: "port upper boundary", base: "http://codex-relay:65535/v1"},
+		{name: "fully qualified host without port", base: "https://relay.example.com/v1"},
 		{name: "single-label host without port", base: "http://codex-relay/v1", skip: "its base URL isn't valid"},
+		{name: "unbracketed IPv6", base: "http://fd00::5/v1", skip: "its base URL isn't valid"},
+		{name: "empty IPv6 port", base: "http://[fd00::5]:/v1", skip: "its base URL isn't valid"},
+		{name: "empty LAN port", base: "http://codex-relay:/v1", skip: "its base URL isn't valid"},
+		{name: "port zero", base: "http://codex-relay:0/v1", skip: "its base URL isn't valid"},
 		{name: "port out of range", base: "http://codex-relay:65536/v1", skip: "its base URL isn't valid"},
+		{name: "negative port", base: "http://codex-relay:-1/v1", skip: "its base URL isn't valid"},
+		{name: "nonnumeric port", base: "http://codex-relay:abc/v1", skip: "its base URL isn't valid"},
 		{name: "bracketed non-IP host", base: "http://[bad]:8080/v1", skip: "its base URL isn't valid"},
 		{name: "malformed IPv6", base: "http://[fd00::5/v1", skip: "its base URL isn't valid"},
 	} {
