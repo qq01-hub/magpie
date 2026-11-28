@@ -1057,7 +1057,7 @@ func discover(ctx context.Context, serverURL string) (meta, error) {
 			m.Scope = strings.Join(prm.Scopes, " ")
 		}
 	}
-	var as struct {
+	type authorizationMetadata struct {
 		Issuer        string   `json:"issuer"`
 		Authorize     string   `json:"authorization_endpoint"`
 		Token         string   `json:"token_endpoint"`
@@ -1066,6 +1066,7 @@ func discover(ctx context.Context, serverURL string) (meta, error) {
 		AuthMethods   []string `json:"token_endpoint_auth_methods_supported"`
 		ScopesSupport []string `json:"scopes_supported"`
 	}
+	var as authorizationMetadata
 	iu, err := url.Parse(issuer)
 	if err != nil || iu.Host == "" {
 		return meta{}, fmt.Errorf("the server names an authorization server that isn't a URL (%q)", issuer)
@@ -1083,7 +1084,9 @@ func discover(ctx context.Context, serverURL string) (meta, error) {
 	}
 	got := false
 	for _, u := range asTries {
-		if getJSON(ctx, u, &as) && as.Authorize != "" && as.Token != "" {
+		var candidate authorizationMetadata
+		if getJSON(ctx, u, &candidate) && candidate.Authorize != "" && candidate.Token != "" {
+			as = candidate
 			got = true
 			break
 		}
