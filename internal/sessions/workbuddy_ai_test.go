@@ -16,7 +16,6 @@ import (
 // agents). The fixture is the China build's own files, as the two builds
 // are one app writing to its own folder.
 func TestWorkBuddyAI(t *testing.T) {
-	inZone(t, 0)
 	home := setupAgents(t)
 	copyTree(t, "testdata/workbuddy", filepath.Join(home, ".workbuddy-ai"))
 	Reset()
@@ -86,7 +85,6 @@ func TestWorkBuddyAI(t *testing.T) {
 // magpie and the international build's same id at the user's own provider,
 // the international build's call is its own, read from its file.
 func TestWorkBuddyAIGatewayIsItsOwn(t *testing.T) {
-	inZone(t, 0)
 	home := setupAgents(t)
 	copyTree(t, "testdata/workbuddy", filepath.Join(home, ".workbuddy-ai"))
 	// WorkBuddy's own-proxy/glm-5 is magpie's; WorkBuddy AI's keeps the
