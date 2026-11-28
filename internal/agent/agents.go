@@ -733,8 +733,9 @@ func magpieProviderJSONAt(shape, catalog, gw string) any {
 			}
 			// without it OpenCode doesn't know when to compact, and a
 			// group's context (magpie group set … context=) never reaches
-			// it; an output of 0 is OpenCode's own default
-			if m.Context > 0 {
+			// it; keep a known output even with no known window. OpenCode 1
+			// requires both sizes, with 0 its own unknown-window default.
+			if m.Context > 0 || m.Output > 0 {
 				e["limit"] = openCodeLimit(m)
 			}
 			if openCodeReasons(m) {

@@ -479,8 +479,9 @@ usage report sends a model id only when models.dev knows it as written
 Synthetic's own host (`api.synthetic.new`) lists its levels in
 `reasoning_parameters.efforts`, its reasoning switch in `supported_features`,
 and its reply limit in `max_output_length`. These take precedence over the
-older compatible fields when usable, and missing or malformed values leave
-those fields and the catalog fallback usable. Its `infinite:` aliases keep
+older compatible fields when usable; the output limit must be a positive
+integer that fits an `int`. Missing or malformed values leave those fields
+and the catalog fallback usable. Its `infinite:` aliases keep
 their own ids and have `Infinite` in their names, since that service mode can
 resolve to the same model and display name as regular inference
 ([`synthetic.go`](../../internal/catalog/synthetic.go),

@@ -2,6 +2,7 @@ package catalog
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"slices"
@@ -77,5 +78,26 @@ func TestDecorateKeepsLiveReasoningLevels(t *testing.T) {
 	live[0].Efforts = nil
 	if got := Decorate(live, known); !slices.Equal(got[0].Efforts, []string{"low", "high"}) {
 		t.Errorf("missing levels not filled: %v", got[0].Efforts)
+	}
+}
+
+func TestSyntheticOutputLimitRejectsInvalidNumbers(t *testing.T) {
+	for _, value := range []string{"1e100", "0.5", "0", "-1", "9223372036854775808"} {
+		t.Run(value, func(t *testing.T) {
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				fmt.Fprintf(w, `{"data":[{"id":"model","max_output_tokens":4096,"max_output_length":%s}]}`, value)
+			}))
+			defer srv.Close()
+			old := http.DefaultClient.Transport
+			http.DefaultClient.Transport = toServer{srv}
+			t.Cleanup(func() { http.DefaultClient.Transport = old })
+			ms, _, err := FetchAt(context.Background(), "https://api.synthetic.new/openai/v1", "fixture-key", false, nil)
+			if err != nil || len(ms) != 1 {
+				t.Fatalf("models: %+v, %v", ms, err)
+			}
+			if ms[0].Output != 4096 {
+				t.Errorf("invalid max_output_length %s replaced legacy limit: %d", value, ms[0].Output)
+			}
+		})
 	}
 }
