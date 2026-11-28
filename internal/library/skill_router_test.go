@@ -440,6 +440,108 @@ func TestRouterDescFits(t *testing.T) {
 	}
 }
 
+func routerDescSnippet(t *testing.T, description, name string) string {
+	t.Helper()
+	_, rest, ok := strings.Cut(description, name+" (")
+	if !ok {
+		t.Fatalf("%s has no description in %q", name, description)
+	}
+	snippet, _, ok := strings.Cut(rest, ")")
+	if !ok {
+		t.Fatalf("%s has an unclosed description in %q", name, description)
+	}
+	return snippet
+}
+
+// The 40-rune tier left 148 characters unused for this issue's 14-skill
+// example, cutting every useful phrase after "first". Keep more of each
+// description while retaining the whole list under Codex's limit.
+func TestRouterDescUsesSpacePastFortyRunes(t *testing.T) {
+	names := make([]string, 14)
+	for i := range names {
+		names[i] = fmt.Sprintf("demo-%02d", i+1)
+	}
+	const summary = "Reads test results and reports the first failing check before printing the full diagnostic details"
+	description, unnamed := routerDesc(names, func(int) string { return summary })
+	if unnamed != 0 || descLen(description) > routerDescMax {
+		t.Fatalf("description is %d units with %d unnamed: %q", descLen(description), unnamed, description)
+	}
+	for _, name := range names {
+		snippet := routerDescSnippet(t, description, name)
+		if got := len([]rune(snippet)); got <= 41 {
+			t.Errorf("%s has %d runes of summary, want more than the old 40-rune tier: %q", name, got, snippet)
+		}
+		if !strings.Contains(snippet, " failing") {
+			t.Errorf("%s did not keep the complete word after the old 40-rune tier: %q", name, snippet)
+		}
+		if !strings.HasSuffix(snippet, "…") || snippet == summary {
+			t.Errorf("%s summary should be bounded and visibly truncated: %q", name, snippet)
+		}
+	}
+}
+
+// Many short summaries should remain whole while a few long ones use the
+// available shared budget instead of forcing every entry down to 20 runes.
+func TestRouterDescPreservesShortSummariesAmongLongOnes(t *testing.T) {
+	const shortCount = 35
+	const longCount = 8
+	const shortSummary = "Run checks"
+	longSummary := strings.Repeat("Review diagnostic evidence before choosing the next action ", 4)
+	names := make([]string, shortCount+longCount)
+	for i := 0; i < shortCount; i++ {
+		names[i] = fmt.Sprintf("s%02d", i)
+	}
+	for i := shortCount; i < len(names); i++ {
+		names[i] = fmt.Sprintf("l%02d", i-shortCount)
+	}
+	description, unnamed := routerDesc(names, func(i int) string {
+		if i < shortCount {
+			return shortSummary
+		}
+		return longSummary
+	})
+	if unnamed != 0 || descLen(description) > routerDescMax {
+		t.Fatalf("description is %d units with %d unnamed: %q", descLen(description), unnamed, description)
+	}
+	for i, name := range names {
+		snippet := routerDescSnippet(t, description, name)
+		if i < shortCount {
+			if snippet != shortSummary {
+				t.Errorf("%s short summary = %q, want %q", name, snippet, shortSummary)
+			}
+			continue
+		}
+		if got := len([]rune(snippet)); got <= 21 {
+			t.Errorf("%s has %d runes of summary, want more than the old 20-rune tier: %q", name, got, snippet)
+		}
+		if !strings.HasSuffix(snippet, "…") {
+			t.Errorf("%s long summary should be visibly truncated: %q", name, snippet)
+		}
+	}
+}
+
+func TestRouterDescKeepsEightyRuneLimit(t *testing.T) {
+	name := "single"
+	full := strings.Repeat("x", 100)
+	description, unnamed := routerDesc([]string{name}, func(int) string { return full })
+	snippet := routerDescSnippet(t, description, name)
+	if unnamed != 0 || len([]rune(snippet)) != 81 || !strings.HasSuffix(snippet, "…") {
+		t.Fatalf("snippet = %d runes, %d unnamed: %q", len([]rune(snippet)), unnamed, snippet)
+	}
+}
+
+func TestRouterDescUnicodeFitsCharacterBudgetPastByteLimit(t *testing.T) {
+	names := make([]string, 14)
+	for i := range names {
+		names[i] = fmt.Sprintf("demo-%02d", i+1)
+	}
+	const summary = "检查"
+	description, unnamed := routerDesc(names, func(int) string { return strings.Repeat(summary, 40) })
+	if unnamed != 0 || descLen(description) > routerDescMax || len(description) <= routerDescMax {
+		t.Fatalf("description has %d UTF-8 bytes, %d UTF-16 units and %d unnamed: %q", len(description), descLen(description), unnamed, description)
+	}
+}
+
 // routerSkills93 are 93 skills' names, as a library of that size has them
 // (niuniu_8964 on X), sorted as writeRouter lists them, one in Chinese.
 func routerSkills93() []string {

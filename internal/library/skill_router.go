@@ -544,20 +544,26 @@ func routerCommand(n, at string) []byte {
 // prompt, so it names neither magpie nor any vendor.
 func routerDesc(names []string, desc func(int) string) (string, int) {
 	const head = "The user's skills. Read this before any task one of them may fit, to find the skill and read its SKILL.md: "
-	short := func(d string, n int) string {
-		if i := strings.IndexAny(d, ".。;；\n"); i > 0 {
-			d = d[:i]
+	prefixes := make([]string, len(names))
+	for i := range names {
+		prefixes[i] = desc(i)
+		if end := strings.IndexAny(prefixes[i], ".。;；\n"); end > 0 {
+			prefixes[i] = prefixes[i][:end]
 		}
+	}
+	short := func(d string, n int) string {
 		if r := []rune(d); len(r) > n {
 			d = strings.TrimSpace(string(r[:n])) + "…"
 		}
 		return d
 	}
-	for _, n := range []int{80, 40, 20, 0} {
+	// Keep the longest shared prefix that fits. Short summaries remain whole;
+	// long ones use the spare room without crossing the 80-rune cap.
+	for n := 80; n >= 0; n-- {
 		parts := make([]string, len(names))
 		for i, name := range names {
 			parts[i] = name
-			if d := short(desc(i), n); n > 0 && d != "" {
+			if d := short(prefixes[i], n); n > 0 && d != "" {
 				parts[i] += " (" + d + ")"
 			}
 		}
