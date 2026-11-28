@@ -6862,6 +6862,7 @@ func (s *Server) forwardOnce(ctx context.Context, p provider.Provider, to provid
 	body = toolOneOfAsAnyOf(p, to, body)
 	body = copilotGeminiToolsFit(p, to, body)
 	body = copilotGeminiToolShapes(p, to, body)
+	body = copilotGeminiThinkOffWire(p, to, body)
 	body = copilotGrokFlat(p, to, body)
 	body = kimiToolEnumTypes(p, to, body)
 	body = kimiToolRefTypes(p, to, body)
@@ -9307,6 +9308,7 @@ func (s *Server) forwardTranslated(ctx context.Context, p provider.Provider, to 
 		if err != nil {
 			return nil, to, err
 		}
+		body = copilotGeminiThinkOffBody(p, to, model, sent, body)
 		noteWireEffort(ctx, to, sent, model)
 		if to == provider.Anthropic && !s.fits(p.ID, thinkingNeeded(model), to) {
 			// a model whose upstream said thinking must be enabled
