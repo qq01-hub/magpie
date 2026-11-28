@@ -47,6 +47,28 @@ func relayOn(t *testing.T, id string) *relayOfChatGPT {
 	return f
 }
 
+// OpenCode Go speaks Responses, but cannot seal or read ChatGPT's encrypted
+// subagent tasks. It must not be selected by the sealed-task route filter.
+func TestOpenCodeGoIsNotASealedTaskReader(t *testing.T) {
+	fresh(t)
+	p := provider.Provider{ID: "opencode-go", Name: "OpenCode Go", Preset: "opencode-go",
+		Key: "sk-go", Chat: "http://127.0.0.1:1/v1", Responses: "http://127.0.0.1:1/v1"}
+	if err := provider.Save(p); err != nil {
+		t.Fatal(err)
+	}
+	if canSeal(p.ID) {
+		t.Error("OpenCode Go was identified as a provider that seals tasks")
+	}
+
+	s := New()
+	cands := []candidate{{p: p, model: "gpt-6-luna"}}
+	pl := planned{order: []Weighed{{}}}
+	got, next := s.sealedReaders(cands, pl, []string{p.ID})
+	if len(got) != 0 || len(next.order) != 0 {
+		t.Errorf("OpenCode Go remained eligible for a sealed task: candidates=%+v order=%+v", got, next.order)
+	}
+}
+
 // codexSubTurn is a request Codex, signed in to ChatGPT, sends magpie for one
 // of magpie's models, with the web_search Codex offers on every turn.
 func codexSubTurn(s *Server, model, session, parent, input string) *httptest.ResponseRecorder {

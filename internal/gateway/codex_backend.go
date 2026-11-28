@@ -412,7 +412,7 @@ func canSeal(id string) bool {
 	if p.Account != nil {
 		return p.Account.Agent == "codex"
 	}
-	return slices.Contains(p.Speaks(), provider.Responses)
+	return provider.CodexMaySeal(*p)
 }
 
 // sealedReader is who can read a subagent's task its lead sealed: a
@@ -431,7 +431,7 @@ func (s *Server) sealedReader(p provider.Provider, model string, sealers []strin
 	if p.Account != nil && p.Account.Agent == "codex" {
 		return true
 	}
-	return p.Account == nil && slices.Contains(sealers, p.ID) && slices.Contains(s.usable(p, model), provider.Responses)
+	return provider.CodexMaySeal(p) && slices.Contains(sealers, p.ID) && slices.Contains(s.usable(p, model), provider.Responses)
 }
 
 // sealedReaders keeps of cands those that can read a sealed subagent task,
