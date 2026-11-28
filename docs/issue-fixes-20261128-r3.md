@@ -28,6 +28,11 @@ Issue state is checked again immediately before a comment is posted
 | [#7019](https://github.com/yetone/magpie/issues/7019) | Client-run tool search converts whole-number floats before handing the call to Codex | [fix/7019-tool-search-float-args](https://github.com/qq01-hub/magpie/tree/fix/7019-tool-search-float-args) | `4cf37fe9668a96b93715f1e8856043a16257e9e7` |
 | [#2815](https://github.com/yetone/magpie/issues/2815) | Claude Code installed with Homebrew's latest cask gets its own channel's update | [fix/2815-claude-brew-latest](https://github.com/qq01-hub/magpie/tree/fix/2815-claude-brew-latest) | `b2b8ba80cf8a3406668f501c692b84a2f2b7a07e` |
 | [#7431](https://github.com/yetone/magpie/issues/7431) | Qwen Code receives Library MCP servers and tool exclusions in its settings file | [fix/7431-qwen-library-target](https://github.com/qq01-hub/magpie/tree/fix/7431-qwen-library-target) | `75c2e408c2fc7d8d32ac3807e7d5f409cb13e19c` |
+| [#3735](https://github.com/yetone/magpie/issues/3735) | Copied Claude fork heads no longer inflate session usage, including full parsing and cached resume | [fix/3735-claude-fork-count](https://github.com/qq01-hub/magpie/tree/fix/3735-claude-fork-count) | `85e996ea6bda4ec077942c14dd8764b472883f35` |
+| [#6696](https://github.com/yetone/magpie/issues/6696) | Remote delta requires matching output content, preserving client edits and counting retained cache data | [fix/6696-remote-delta-content](https://github.com/qq01-hub/magpie/tree/fix/6696-remote-delta-content) | `2202e65de5d66070fd018a86f2602f48a30f7e97` |
+| [#5221](https://github.com/yetone/magpie/issues/5221) | Explicit InternLM content-check codes are classified as refusals without broad message matching | [fix/5221-internlm-safety-refusal](https://github.com/qq01-hub/magpie/tree/fix/5221-internlm-safety-refusal) | `29a39f55ebe78daa3fbdbd3950c7526bc8ef94b8` |
+| [#7563](https://github.com/yetone/magpie/issues/7563) | OMP project skills, MCP servers and plugin parts use their native project files | [fix/7563-omp-project-targets](https://github.com/qq01-hub/magpie/tree/fix/7563-omp-project-targets) | `b314126c7447fbdf7235832d2ce7fd77b4a32ac8` |
+| [#2835](https://github.com/yetone/magpie/issues/2835) | Complete current-platform editor SDK caches keep Claude and Codex detected, including beside Cindy | [fix/2835-agent-host-sdk](https://github.com/qq01-hub/magpie/tree/fix/2835-agent-host-sdk) | `1418ec294bf055b40dbac5855f7ad8d571078696` |
 
 ## Reproduction and checks
 
@@ -129,6 +134,29 @@ Machine-readable results: [third five-fix batch](issue-fixes-20261128-r3-batch3-
 - Windows `go vet ./...`, Linux `go vet -tags nogui ./...`, a GUI-enabled Windows build and a Linux `nogui` build passed for the fourth batch; changed Go files are formatted and `git diff --check` is clean
 
 Machine-readable results: [fourth five-fix batch](issue-fixes-20261128-r3-batch4-results.json)
+
+## Fifth batch checks
+
+- #3735: the original parent/fork fixture counts 250 input / 25 output / 30 cache-read tokens on the old code instead of 150 / 15 / 20
+- #3735: the author port passes that fixture but still fails full-JSON marker parsing and binary-cache resume; the follow-up handles reordered fields and stores ForkHead in the serialized rare state
+- #3735: ordinary subagents, marker words inside normal text, replay/revision, parser invalidation and state schema controls pass; the same parent/fork fixture's AgentCalls returns exactly two calls with the correct totals, through its existing cross-file message-id deduplication
+- #3735: 15 selected top-level tests passed under race detection, plus a final race run of the call-detail assertion
+- #6696: JSON and SSE requests through two loopback gateway hops reproduce the loss of a client-edited {} argument to a 4,613,947-character cached output; both pass after content matching
+- #6696: changed tool names and text force complete history, while unchanged content and recognized metadata omissions retain delta; final_answer omission is accepted but commentary remains distinct
+- #6696: long identifiers and many digests fail the old cache size accounting and pass the corrected accounting; scope, expiry and per-route limits pass, and 11 selected top-level tests passed with -race -count=3
+- #5221: raw, wrapped and streamed InternLM errors fail classification on the old code; the author's message substring rule also misclassifies unrelated errors, so the final change accepts only the two explicit code/type values
+- #5221: real loopback HTTP/SSE handler tests verify zero retries asks one key and records failRefused without resting the account; message-only, quoted and similar codes stay ordinary errors, and focused race tests pass
+- #7563: all three new project tests fail on the old code; native skill links, stdio/HTTP/SSE servers and plugin parts are written and removed successfully after the change
+- #7563: existing user skills, servers, comments, compatibility files and PI_CONFIG_DIR settings remain intact; the project-native paths follow the checked oh-my-pi source at e045d0a1208f6395f9d5ab85faf9ebc74a7eba4e and do not rely on shared-skill support
+- #2835: the old code rejects complete editor SDK caches; the author port falsely accepts another platform and still hides independent SDKs beside Cindy, both reproduced before the follow-up
+- #2835: eight selected tests cover complete/partial/wrong-platform caches and Cindy coexistence; Node platform/architecture names are used, and unsupported targets remain absent
+- #2835: native Linux/macOS and the newer Claude Linux-musl-specific cache variant were not exercised; the implementation recognizes the exact OS/architecture cache target
+- Credits: Silas Su for #3735, Xulin Wu for #6696, Hermes Agent for #5221, bsbandwl for #7563's source references and WenyuRiver for #2835
+- The affected production files have no intervening changes between the fixed base and inspected upstream 1038298ffabb167600a2afe8ddb4a165a2794541
+- Final integration at `df13223fe1107ea1da68126f17084e2c84ee96ae`: 53 top-level tests and 117 tests/subtests across sessions, gateway, agent and library passed, with zero failures and zero skips
+- Windows go vet ./..., Linux go vet -tags nogui ./..., a GUI-enabled Windows build and a Linux nogui build passed; changed Go files are formatted and git diff --check is clean
+
+Machine-readable results: [fifth five-fix batch](issue-fixes-20261128-r3-batch5-results.json)
 
 ## Environment and limits
 
