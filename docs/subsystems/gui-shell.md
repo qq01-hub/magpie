@@ -1541,6 +1541,16 @@ blank with the error in the footer for 8 s (WaiooT on X,
 
 ### Where Windows installs magpie
 
+The running binary can be moved within its volume while it runs. If its
+launch path no longer exists, `update.Executable` asks Windows for the live
+process image path (`currentExe`, `QueryFullProcessImageName` in
+[`proc_windows.go`](../../internal/update/proc_windows.go)) before resolving
+symlinks, so self-update follows the moved file. The existing launch path
+remains the fast path and the fallback when the live image cannot be read
+or no longer names a file. `TestExecutableMovedWhileRunning` moves only a
+private test helper after a stdin handshake, including a Unicode path
+longer than MAX_PATH; it never moves the running magpie or starts an update
+
 There is no installer: the Windows exe opened from Downloads, the Desktop
 or a temp folder installs itself (`update.Settle`, called from `gui.Run`).
 So does one still named as the site's download (`magpie-windows-amd64.exe`,

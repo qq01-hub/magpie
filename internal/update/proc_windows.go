@@ -5,9 +5,9 @@ import (
 	"os"
 	"os/exec"
 	"syscall"
-	"unsafe"
 
 	"github.com/yetone/magpie/internal/proc"
+	"golang.org/x/sys/windows"
 )
 
 const (
@@ -17,11 +17,6 @@ const (
 	newProcGroup = 0x00000200
 	suspended    = 0x00000004
 	noWindow     = 0x08000000
-)
-
-var (
-	procQueryFullProcessImageName = syscall.NewLazyDLL("kernel32.dll").NewProc("QueryFullProcessImageNameW")
-	procGetCurrentProcess         = syscall.NewLazyDLL("kernel32.dll").NewProc("GetCurrentProcess")
 )
 
 // currentExe returns the path to the running executable.
@@ -45,31 +40,21 @@ func currentExe() (string, error) {
 }
 
 func queryLiveExe() (string, error) {
-	h, _, _ := procGetCurrentProcess.Call()
-	if h == 0 {
-		return "", syscall.GetLastError()
-	}
-	return queryProcessExe(syscall.Handle(h))
+	return queryProcessExe(windows.CurrentProcess())
 }
 
-func queryProcessExe(h syscall.Handle) (string, error) {
-	b := make([]uint16, syscall.MAX_PATH)
+func queryProcessExe(h windows.Handle) (string, error) {
+	b := make([]uint16, windows.MAX_PATH)
 	for {
 		size := uint32(len(b))
-		r1, _, err := procQueryFullProcessImageName.Call(
-			uintptr(h),
-			0,
-			uintptr(unsafe.Pointer(&b[0])),
-			uintptr(unsafe.Pointer(&size)),
-		)
-		if r1 == 0 {
-			if errors.Is(err, syscall.ERROR_INSUFFICIENT_BUFFER) && len(b) < 32768 {
-				b = make([]uint16, len(b)*2)
+		if err := windows.QueryFullProcessImageName(h, 0, &b[0], &size); err != nil {
+			if errors.Is(err, windows.ERROR_INSUFFICIENT_BUFFER) && len(b) < 32768 {
+				b = make([]uint16, min(len(b)*2, 32768))
 				continue
 			}
 			return "", err
 		}
-		return syscall.UTF16ToString(b[:size]), nil
+		return windows.UTF16ToString(b[:size]), nil
 	}
 }
 
