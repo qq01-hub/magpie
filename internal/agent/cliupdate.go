@@ -45,7 +45,7 @@ type CLI struct {
 	// Latest is the newest there is, from where it would be updated:
 	// Homebrew's for one Homebrew installed, npm's otherwise
 	Latest string `json:"latest,omitempty"`
-	// Via is what updates it: npm, bun, pnpm, brew, or self (its own
+	// Via is what updates it: npm, bun, pnpm, volta, brew, or self (its own
 	// updater); "" when magpie can't tell how it was installed
 	Via string `json:"via,omitempty"`
 	// Command is the update as a person would type it
@@ -259,7 +259,7 @@ var cliSpecs = map[string]cliSpec{
 
 // updater is how an installed CLI is brought up to date.
 type updater struct {
-	via  string   // npm, bun, pnpm, brew, self
+	via  string   // npm, bun, pnpm, volta, brew, self
 	pkg  string   // the npm package, or the Homebrew formula or cask
 	cask bool     // pkg is a Homebrew cask
 	brew string   // the brew that has it
@@ -322,11 +322,113 @@ func howInstalled(spec cliSpec, bin string) *updater {
 	// otherwise a package manager's before Homebrew's: npm under Homebrew's
 	// node (a keg-only node@20's Cellar/node@20/<v>/lib/node_modules) is npm's
 	for _, pkg := range spec.npm {
+		if u := fromVolta(pkg, bin); u != nil {
+			return u
+		}
 		if u := fromNodeModules(pkg, spec.scripts, bin, slash); u != nil {
 			return u
 		}
 	}
 	return nil
+}
+
+// voltaLook finds Volta's manager, and voltaRun asks it for ownership data.
+// Vars keep updater tests away from a real Volta installation.
+var (
+	voltaLook = func() string {
+		p, err := proc.Look("volta")
+		if err != nil {
+			return ""
+		}
+		return p
+	}
+	voltaRun = func(ctx context.Context, bin string, args ...string) ([]byte, error) {
+		cmd := proc.CommandContext(ctx, bin, args...)
+		cmd.Stdin = nil
+		cmd.Dir, _ = os.UserHomeDir()
+		return cmd.Output()
+	}
+)
+
+// fromVolta recognizes a Windows Volta default package only when both
+// manager queries agree: the package is a default entry for this tool, and
+// `volta which` returns an existing entry under the same Volta installation.
+// A successful `which` alone is insufficient because Volta falls back to the
+// system PATH when no default tool is installed.
+func fromVolta(pkg string, bin string) *updater {
+	if runtime.GOOS != "windows" {
+		return nil
+	}
+	lowerBin := strings.ToLower(filepath.ToSlash(filepath.Clean(bin)))
+	if !strings.Contains(lowerBin, "/volta/bin/") && !strings.Contains(lowerBin, "/volta/tools/") {
+		return nil
+	}
+	volta := voltaLook()
+	if volta == "" {
+		return nil
+	}
+	name := strings.TrimSuffix(filepath.Base(bin), filepath.Ext(bin))
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	which, err := voltaRun(ctx, volta, "which", name)
+	if err != nil {
+		return nil
+	}
+	target := runnable(strings.TrimSpace(lastLines(string(which), 1)))
+	if target == "" || !voltaEntryPair(bin, target) {
+		return nil
+	}
+	list, err := voltaRun(ctx, volta, "list", "--format", "plain")
+	if err != nil {
+		return nil
+	}
+	if voltaDefaultPackage(string(list), pkg, name) == "" {
+		return nil
+	}
+	return &updater{via: "volta", pkg: pkg, cmd: []string{volta, "install", pkg + "@latest"}}
+}
+
+func voltaDefaultPackage(out, pkg, tool string) string {
+	for _, line := range strings.Split(out, "\n") {
+		line = strings.TrimSpace(line)
+		if !strings.HasPrefix(line, "package ") || !strings.HasSuffix(line, "(default)") {
+			continue
+		}
+		parts := strings.SplitN(strings.TrimPrefix(line, "package "), " / ", 3)
+		if len(parts) != 3 || !strings.HasPrefix(strings.TrimSpace(parts[0]), pkg+"@") {
+			continue
+		}
+		version := strings.TrimPrefix(strings.TrimSpace(parts[0]), pkg+"@")
+		if version == "" {
+			continue
+		}
+		for _, got := range strings.Split(strings.TrimSpace(parts[1]), ",") {
+			if strings.EqualFold(strings.TrimSpace(got), tool) {
+				return parseVersion(" " + version)
+			}
+		}
+	}
+	return ""
+}
+
+func voltaEntryPair(bin, target string) bool {
+	bin, target = filepath.Clean(bin), filepath.Clean(target)
+	if !isFile(target) {
+		return false
+	}
+	norm := func(p string) string { return strings.ToLower(filepath.ToSlash(p)) }
+	b, t := norm(bin), norm(target)
+	if b == t || strings.TrimSuffix(b, filepath.Ext(b)) == strings.TrimSuffix(t, filepath.Ext(t)) {
+		return true
+	}
+	if i := strings.Index(b, "/volta/bin/"); i >= 0 {
+		root := b[:i+len("/volta")]
+		if !strings.HasPrefix(t, root+"/tools/") {
+			return false
+		}
+		return strings.EqualFold(filepath.Base(strings.TrimSuffix(bin, filepath.Ext(bin))), filepath.Base(strings.TrimSuffix(target, filepath.Ext(target))))
+	}
+	return false
 }
 
 // selfPath is the folder to put first on PATH for a CLI's own updater, when
@@ -429,7 +531,7 @@ func fromNodeModules(pkg string, scripts bool, bin, real string) *updater {
 			return nil
 		}
 		return &updater{via: "pnpm", pkg: pkg, cmd: withScripts([]string{pnpm, "add", "-g"}, "pnpm", pkg, scripts)}
-	case strings.Contains(lower, "/.volta/") || strings.Contains(lower, "/yarn/") || strings.Contains(lower, "/.yarn/"):
+	case strings.Contains(lower, "/.volta/") || strings.Contains(lower, "/volta/") || strings.Contains(lower, "/yarn/") || strings.Contains(lower, "/.yarn/"):
 		return nil // installed by a manager of its own, which magpie leaves to it
 	}
 	if modules == "" {
