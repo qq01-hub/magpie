@@ -4,7 +4,7 @@
 
 账号为 [qq01-hub](https://github.com/qq01-hub)，整合分支为 [fix/unanswered-issues-20261128](https://github.com/qq01-hub/magpie/tree/fix/unanswered-issues-20261128)
 
-以下是已经完成并审核的 16 项，本轮其余问题仍在独立工作树处理
+以下是已经完成并审核的 17 项，本轮其余问题仍在独立工作树处理
 
 | Issue | 修复与边界 | 独立分支 | 审核 HEAD |
 | --- | --- | --- | --- |
@@ -24,6 +24,7 @@
 | [#7938](https://github.com/yetone/magpie/issues/7938) | AGY 本地摘要请求超限时精简历史图片和大工具输出，UTF-8 字符保持完整，普通请求及原生压缩保持原样，仍超限返回 413 | [fix/7938-oversized-agy-compaction](https://github.com/qq01-hub/magpie/tree/fix/7938-oversized-agy-compaction) | `59c12f9cca2ea0ee2432587e6dca1005079a6093` |
 | [#7988](https://github.com/yetone/magpie/issues/7988) | 技能 frontmatter 解析失败时丢弃不完整字段，显示文件夹名及本地化警告，区分来源显示名和安全安装名 | [fix/7988-skill-frontmatter-parse](https://github.com/qq01-hub/magpie/tree/fix/7988-skill-frontmatter-parse) | `5af7e9a49d11ed3bb6511a5aa07f77f4fb42a259` |
 | [#7799](https://github.com/yetone/magpie/issues/7799) | 交互模式粘贴前清理 bidi 控制标记，保留原文、ZWJ emoji 和零宽空格，命令前缀保护在清理后仍生效 | [fix/7799-interactive-bidi-paste](https://github.com/qq01-hub/magpie/tree/fix/7799-interactive-bidi-paste) | `38728eb8e52c9a9b6c01054560449f7ba6aaf756` |
+| [#7888](https://github.com/yetone/magpie/issues/7888) | 同源余额刷新错开请求，429 后按 Retry-After 或指数退避等待并保留上次余额，探测限流不记录为无余额接口，等待可取消 | [fix/7888-balance-refresh-429](https://github.com/qq01-hub/magpie/tree/fix/7888-balance-refresh-429) | `eff2ed3148b16970a28ffd8de6f664c4cd68df1e` |
 
 ## 实际失败复现与验证
 
@@ -47,6 +48,7 @@
 | #7938 | 真实超过 512 MiB 的本地 HTTP 请求在旧 handler 返回 413、上游零字节；作者补丁的工具输出截断会切碎 UTF-8 字符 | 大请求压缩及继续对话、UTF-8 边界、普通或仍超限输入、原生压缩四项均通过，整合代码同四项通过，运行未传 `-short`，未使用真实 AGY 账号 |
 | #7988 | 旧生产代码的 Library 和 Agent 自有技能视图丢失 YAML 解析错误 | 两项 Go 回归通过，Chromium/WebKit 五语言共 12 项通过，覆盖来源安装、合法邻居、窄屏和 HTML 样式错误值，整合分支同组通过 |
 | #7799 | 旧代码的交互 shim 仍将全部 bidi 标记发给模拟 Claude，四种前缀保护失败 | 新 shim 测试、Pasteable 和原有交互发送三项通过，整合分支同组通过；额外完整 claudetui 包运行中止，未作为通过，未运行真实 Claude Code 2.1.332 |
+| #7888 | 旧余额路径同源请求间隔为零，429 后第二次读取没有等待；作者补丁对已取消 context 仍返回成功 | 六项余额与两项取消测试及两个子案例通过 `-race -count=20`，整合代码同八项通过，覆盖秒数和 HTTP-date Retry-After、余额不足负例、迟到成功、探测和 last-good；额外 provider 整包运行中止，未作为通过 |
 
 说明：#7777 提交正文中边界红测的 “on the base” 指作者补丁上的边界版本，原始主干复现与作者补丁补强是两个独立失败记录
 
