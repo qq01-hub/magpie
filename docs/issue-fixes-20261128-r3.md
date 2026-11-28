@@ -18,6 +18,11 @@ Issue state is checked again immediately before a comment is posted
 | [#5330](https://github.com/yetone/magpie/issues/5330) | Plugin accounts are recorded under their provider identity so quota cards follow the account in use | [fix/5330-plugin-served-id](https://github.com/qq01-hub/magpie/tree/fix/5330-plugin-served-id) | `1537f03e5195906d6dbfcadfc5fe48f4e8f8a481` |
 | [#7072](https://github.com/yetone/magpie/issues/7072) | Structured plugin empty replies use the bounded empty-reply retry budget in HTTP and SSE | [fix/7072-plugin-empty-reply-kind](https://github.com/qq01-hub/magpie/tree/fix/7072-plugin-empty-reply-kind) | `eb3a87c20c8a131aea6c88d7d2ce2d778b9fae9c` |
 | [#7091](https://github.com/yetone/magpie/issues/7091) | MCP OAuth discovery tries path-appended AS metadata after RFC/OIDC candidates, parsing each response independently | [fix/7091-mcp-oauth-metadata-path](https://github.com/qq01-hub/magpie/tree/fix/7091-mcp-oauth-metadata-path) | `90a1fc583ec34b5762068e9480015a1a8a24da2d` |
+| [#3057](https://github.com/yetone/magpie/issues/3057) | Drawer discovery advertises image output in the standard output_modalities field | [fix/3057-drawer-output-modalities](https://github.com/qq01-hub/magpie/tree/fix/3057-drawer-output-modalities) | `79ec3f010ae415443a7f79fb0d1e99acd564296a` |
+| [#5229](https://github.com/yetone/magpie/issues/5229) | dsh reads and writes the last effective default-model entry, leaving metadata and other plugins alone | [fix/5229-dsh-last-effective](https://github.com/qq01-hub/magpie/tree/fix/5229-dsh-last-effective) | `be82702568901091e39013dcd2a7c02deb0d162a` |
+| [#4028](https://github.com/yetone/magpie/issues/4028) | Provider imports accept single-label LAN names with ports and IPv6 literals, preserving URL validation and gateway loop prevention | [fix/4028-lan-host-url](https://github.com/qq01-hub/magpie/tree/fix/4028-lan-host-url) | `04d9c78e649e849afa926c6edd6558ce63f512b3` |
+| [#2690](https://github.com/yetone/magpie/issues/2690) | Codex titles drop localized labels and read localized JSON fields with deterministic precedence | [fix/2690-codex-title-labels](https://github.com/qq01-hub/magpie/tree/fix/2690-codex-title-labels) | `9baab8957866d611b6c490a7d4e8b213168d468a` |
+| [#6148](https://github.com/yetone/magpie/issues/6148) | vLLM grammar-format custom-tool refusals use the existing same-Responses-API translation | [fix/6148-custom-tool-grammar](https://github.com/qq01-hub/magpie/tree/fix/6148-custom-tool-grammar) | `2b8a1ea8e295d57fd7cfe62fae7c57c491d9b1ea` |
 
 ## Reproduction and checks
 
@@ -66,6 +71,36 @@ Original patch authors retain their credit: yhzang for #7165, Wyman Wen for #743
 - Windows `go vet ./...`, Linux `go vet -tags nogui ./...`, a GUI-enabled Windows build and a Linux `nogui` build passed for the second batch; changed Go files are formatted and `git diff --check` is clean
 
 Machine-readable results: [second five-fix batch](issue-fixes-20261128-r3-batch2-results.json)
+
+## Third batch checks
+
+- #3057: the original `/v1/models` handler response with the drawers header has no `output_modalities`; the port returns exactly `["image"]` and retains the existing discovery fields
+- #3057: the HTTP regression and hidden-drawer neighbor passed under `-race`; the independent integration review passed all four selected tests, including model/key and account restrictions for image/video lists
+- #3057: the test network guard refused a background models.dev lookup during the restriction tests; assertions used local fixtures and passed without contacting it
+- #3057: frankdzh's production patch retains its author; tests and documentation are a separate Q commit
+- #5229: three new tests fail against the old code because set/drop, keep-pick and profile fill change or inspect the first duplicate instead of the last effective entry
+- #5229: readers and writers now use the same selection, including effort and route migration; entries with `insert`, another plugin's name, or metadata without config are not selected for config writes
+- #5229: the independent integration review passed 14 top-level tests and 16 tests/subtests, zero failures or skips, covering duplicate entries, home-layer overrides and restoration of the user's model
+- #5229: a broader DSH-only run passed with two platform skips; an accidental whole-agent-package run was stopped and is not counted as verification
+- #5229: yetone's root-cause analysis is credited in the production commit
+- #4028: the old code rejects the reported LAN host and IPv6 literal and misses IPv6 loopback when checking for the gateway itself; the new tests reproduce each failure
+- #4028: review found that the first port check still accepted zero and empty IPv6 ports; separate failing tests now guard those cases, with 1 and 65535 accepted and malformed, out-of-range and unbracketed IPv6 addresses refused
+- #4028: a CC Switch config.json fixture is read, offered and imported into the saved provider with its original endpoint and key; imported IPv6 and mapped-IPv6 loopbacks on the gateway's port remain excluded
+- #4028: four targeted tests and 15 subtests passed under `-race`; the independent integration review passed 10 top-level tests and 25 tests/subtests with zero failures or skips
+- #4028: tests used temporary files only, with no LAN service or real relay access; the earlier broader import selection had one fake-shell platform skip, excluded from the final selection
+- #2690: the original code retains Chinese title prefixes and loses localized JSON title fields; tests using the reporter's original input fail before the change
+- #2690: review exposed nondeterministic precedence between `title` and `Title`; exact string keys now win, including an empty canonical title, followed by fixed localized order and sorted case-insensitive aliases
+- #2690: Chinese, Japanese and Korean JSON/text labels, non-string fields, bare labels and words beginning with a label are covered; the HTTP handler regression verifies a Japanese title returned through the actual Codex title path
+- #2690: four focused tests passed under `-race`; the independent integration review passed 10 top-level tests and 12 tests/subtests with zero failures or skips, including title settings, description fallbacks and no-description recording
+- #2690: DamienZCollins is credited as the reporter; the original fork was unavailable, so this is an independent implementation
+- #6148: nlimpid's original patch is ported with its author preserved; only the optional literal grammar-format wording is added to the refusal matcher
+- #6148: the old code returns the reported HTTP 400 for both streamed and complete responses; both pass with the change, including the same-API retry, custom call reconstruction, immediate conversion on the next request, grammar description and unchanged accepting-upstream controls
+- #6148: invalid grammar definitions and unrelated errors remain unmatched; three focused top-level tests and four subtests passed
+- #6148: the custom-tool selection passed under `-race`, including call IDs, raw custom input preservation and streaming grammar conversion
+- Final integration at `494c7478d0eacc5eaa2bd958563f78d86d5857cf`: 41 top-level tests, 64 tests and subtests across agent, provider and gateway; zero failures and zero skips
+- Windows `go vet ./...`, Linux `go vet -tags nogui ./...`, a GUI-enabled Windows build and a Linux `nogui` build passed for the third batch; changed Go files are formatted and `git diff --check` is clean
+
+Machine-readable results: [third five-fix batch](issue-fixes-20261128-r3-batch3-results.json)
 
 ## Environment and limits
 
