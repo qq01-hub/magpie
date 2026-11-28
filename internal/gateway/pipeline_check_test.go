@@ -7,12 +7,16 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/yetone/magpie/internal/plugin"
 	"github.com/yetone/magpie/internal/provider"
 	"github.com/yetone/magpie/internal/settings"
+	"github.com/yetone/magpie/internal/testenv"
 )
 
 // Settings › Models' check of each pipeline (EV_John_Liu on X) makes one
@@ -110,6 +114,191 @@ func TestCheckSkipsADisabledModel(t *testing.T) {
 	if got := FirstServing("speech"); got != "" {
 		t.Fatalf("a disabled model was taken: %q", got)
 	}
+}
+
+func TestFirstServingFindsPluginDeclaredAudioModels(t *testing.T) {
+	p := pluginWithAudioModels(t)
+	for _, tc := range []struct{ kind, model string }{
+		{"speech", "workbuddy-tts"},
+		{"transcription", "workbuddy-transcribe"},
+	} {
+		if got := FirstServing(tc.kind); got != p+"/"+tc.model {
+			t.Errorf("FirstServing(%q) = %q, want plugin-declared %s", tc.kind, got, tc.model)
+		}
+	}
+}
+
+func TestFirstServingSkipsPluginAudioModelsWhenOffNoneOrDisabled(t *testing.T) {
+	p := pluginWithAudioModels(t)
+	if err := provider.SetOff(p, true); err != nil {
+		t.Fatal(err)
+	}
+	if got := FirstServing("speech"); got != "" {
+		t.Fatalf("switched-off plugin served %q", got)
+	}
+	if err := provider.SetOff(p, false); err != nil {
+		t.Fatal(err)
+	}
+	entry, err := provider.Find(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	entry.NoModels = true
+	if err := provider.Save(*entry); err != nil {
+		t.Fatal(err)
+	}
+	if got := FirstServing("speech"); got != "" {
+		t.Fatalf("Select none plugin served %q", got)
+	}
+	entry.NoModels = false
+	if err := provider.Save(*entry); err != nil {
+		t.Fatal(err)
+	}
+	if err := provider.SetDisabledModels([]string{p + "/workbuddy-tts", p + "/workbuddy-transcribe", p + "/workbuddy-tts-alt"}); err != nil {
+		t.Fatal(err)
+	}
+	for _, kind := range []string{"speech", "transcription"} {
+		if got := FirstServing(kind); got != "" {
+			t.Errorf("disabled %s model served %q", kind, got)
+		}
+	}
+}
+
+func TestFirstServingPutsPickedPluginAudioModelFirst(t *testing.T) {
+	p := pluginWithAudioModels(t)
+	entry, err := provider.Find(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	entry.Models = []string{"workbuddy-tts-alt"}
+	if err := provider.Save(*entry); err != nil {
+		t.Fatal(err)
+	}
+	if got := FirstServing("speech"); got != p+"/workbuddy-tts-alt" {
+		t.Fatalf("FirstServing(speech) = %q, want the picked plugin model", got)
+	}
+}
+
+func TestFirstServingKeepsProviderOrderAndSkipsAudioChatModels(t *testing.T) {
+	p := pluginWithAudioModels(t)
+	if err := provider.Save(provider.Provider{ID: "relay", Name: "Relay", Chat: "http://127.0.0.1:1/v1", Key: "key", Models: []string{"tts-1"}}); err != nil {
+		t.Fatal(err)
+	}
+	if got := FirstServing("speech"); got != "relay/tts-1" {
+		t.Fatalf("provider order = %q, want the earlier configured provider", got)
+	}
+	if err := provider.Delete("relay"); err != nil {
+		t.Fatal(err)
+	}
+	if got := FirstServing("speech"); got != p+"/workbuddy-tts" {
+		t.Fatalf("ordinary audio chat model was selected: %q", got)
+	}
+	if got := FirstServing("transcription"); got != p+"/workbuddy-transcribe" {
+		t.Fatalf("ordinary audio input chat model was selected: %q", got)
+	}
+}
+
+func TestFirstServingDoesNotClassifyAudioChatModalitiesAsPipelines(t *testing.T) {
+	pluginWithAudioChatModelsOnly(t)
+	for _, kind := range []string{"speech", "transcription"} {
+		if got := FirstServing(kind); got != "" {
+			t.Errorf("audio-capable chat model incorrectly serves %s: %q", kind, got)
+		}
+	}
+}
+
+func TestFirstServingFindsPluginModelFromAnotherOnAccount(t *testing.T) {
+	p := pluginWithAudioModels(t)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+	if _, err := plugin.APIKey(ctx, "fakeco", 0, nil, "audio-key-2", plugin.NewAccount); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := plugin.Providers(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if err := provider.SetDisabledModels([]string{p + "/workbuddy-tts", p + "/workbuddy-tts-alt"}); err != nil {
+		t.Fatal(err)
+	}
+	if got := FirstServing("speech"); got != p+"/workbuddy-tts-second" {
+		t.Fatalf("second account's speech model = %q, want %s/workbuddy-tts-second", got, p)
+	}
+}
+
+func TestFirstServingUsesPluginModelAlias(t *testing.T) {
+	p := pluginWithAudioModels(t)
+	if _, _, err := provider.SetModelID(p+"/workbuddy-tts-alt", "my-read-aloud"); err != nil {
+		t.Fatal(err)
+	}
+	if err := provider.SetDisabledModels([]string{p + "/workbuddy-tts"}); err != nil {
+		t.Fatal(err)
+	}
+	if got := FirstServing("speech"); got != p+"/my-read-aloud" {
+		t.Fatalf("FirstServing(speech) = %q, want the plugin model's local id", got)
+	}
+}
+
+func pluginWithAudioModels(t *testing.T) string {
+	t.Helper()
+	bun := testenv.Bun(t)
+	fresh(t)
+	t.Setenv("MAGPIE_BUN", bun)
+	t.Setenv("FAKE_PIPELINES", "1")
+	t.Cleanup(plugin.Settle)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+	abs, err := filepath.Abs("../plugin/testdata/fake/index.js")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := plugin.Add(ctx, abs); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := plugin.Providers(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := plugin.APIKey(ctx, "fakeco", 0, nil, "audio-key", plugin.NewAccount); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := plugin.Providers(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := provider.Find("fakeco"); err != nil {
+		t.Fatal(err)
+	}
+	return "fakeco"
+}
+
+func pluginWithAudioChatModelsOnly(t *testing.T) string {
+	t.Helper()
+	bun := testenv.Bun(t)
+	fresh(t)
+	t.Setenv("MAGPIE_BUN", bun)
+	t.Setenv("FAKE_PIPELINES", "1")
+	t.Setenv("FAKE_AUDIO_CHAT_ONLY", "1")
+	t.Cleanup(plugin.Settle)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+	abs, err := filepath.Abs("../plugin/testdata/fake/index.js")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := plugin.Add(ctx, abs); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := plugin.Providers(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := plugin.APIKey(ctx, "fakeco", 0, nil, "audio-key", plugin.NewAccount); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := plugin.Providers(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := provider.Find("fakeco"); err != nil {
+		t.Fatal(err)
+	}
+	return "fakeco"
 }
 
 func TestCheckSearchAsksOnce(t *testing.T) {

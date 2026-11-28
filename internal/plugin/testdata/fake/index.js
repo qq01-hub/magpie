@@ -505,6 +505,19 @@ export const FakePlugin = async ({ client }) => ({
         p.models["gemini-2.5-flash-native-audio"] = as("gemini-2.5-flash-native-audio", { text: true, image: false, audio: true, video: false, pdf: false })
         p.models["gemini-2.5-flash-image"] = as("gemini-2.5-flash-image", { text: true, image: true, audio: false, video: false, pdf: false })
       }
+      // $FAKE_PIPELINES: WorkBuddy's independently named speech and
+      // transcription models beside ordinary audio-capable chat models.
+      if (process.env.FAKE_PIPELINES) {
+        const audio = (id, input, output) => ({ ...p.models["fake-1"], id, name: id, api: { ...p.models["fake-1"].api, id },
+          capabilities: { ...p.models["fake-1"].capabilities, input, output } })
+        if (auth?.key === "audio-key-2") return { "workbuddy-tts-second": audio("workbuddy-tts-second", { text: true }, { audio: true }) }
+        p.models["workbuddy-tts"] = audio("workbuddy-tts", { text: true }, { audio: true })
+        p.models["workbuddy-tts-alt"] = audio("workbuddy-tts-alt", { text: true }, { text: true, audio: true })
+        p.models["workbuddy-transcribe"] = audio("workbuddy-transcribe", { audio: true }, {})
+        p.models["voice-out-chat"] = audio("voice-out-chat", { text: true, audio: true }, { text: true, audio: true })
+        p.models["voice-in-chat"] = audio("voice-in-chat", { text: true, audio: true }, { text: true })
+        if (process.env.FAKE_AUDIO_CHAT_ONLY) return { "voice-out-chat": p.models["voice-out-chat"], "voice-in-chat": p.models["voice-in-chat"] }
+      }
       // $FAKE_SEARCHER: one more model, that searches the web by itself
       // when asked in plain words, marked on the list the hook gives, as
       // Trae CN's search_agent ("Search") is listed beside its chat models

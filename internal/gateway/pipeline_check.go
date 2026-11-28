@@ -14,6 +14,7 @@ import (
 
 	"github.com/yetone/magpie/internal/catalog"
 	"github.com/yetone/magpie/internal/netproxy"
+	"github.com/yetone/magpie/internal/plugin"
 	"github.com/yetone/magpie/internal/provider"
 	"github.com/yetone/magpie/internal/settings"
 )
@@ -70,18 +71,33 @@ func FirstServing(kind string) string {
 		if !p.On() || p.DecideOnly() || p.ServesNone() {
 			continue
 		}
+		var pluginModels []plugin.Model
+		if p.IsPlugin() {
+			if pp, ok := provider.PluginOf(p.ID); ok {
+				pluginModels = pp.Models
+			}
+		}
 		var ids []string
 		for _, id := range p.Models {
-			if catalog.ServesOf(id) == kind {
+			own := p.OwnModelID(id)
+			if catalog.ServesOf(own) == kind {
 				ids = append(ids, id)
 			}
 		}
-		for _, m := range catalog.LiveServing(p.ID, kind) {
-			ids = append(ids, m.ID)
-		}
-		for _, m := range provider.KeptListing(p).Available {
-			if catalog.ServesOf(m.ID) == kind {
+		if p.IsPlugin() {
+			for _, m := range pluginModels {
+				if catalog.ServesOf(m.ID) == kind {
+					ids = append(ids, p.ListedModelID(m.ID))
+				}
+			}
+		} else {
+			for _, m := range catalog.LiveServing(p.ID, kind) {
 				ids = append(ids, m.ID)
+			}
+			for _, m := range provider.KeptListing(p).Available {
+				if catalog.ServesOf(m.ID) == kind {
+					ids = append(ids, m.ID)
+				}
 			}
 		}
 		for _, m := range p.PlanRetrieval(kind) {
