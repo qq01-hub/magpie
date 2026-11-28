@@ -248,7 +248,9 @@ talks to it as it talks to `-p`: stream-json in and out. The helper:
   on Windows 11 26200, magpie-desktop, Claude Code 2.1.289);
 - pastes each user message into the prompt (bracketed paste) and presses
   Enter. A message opening with `/`, `!`, `#` or `&` is pasted after a
-  line break, so it is words, not a command (`pasteable`);
+  line break, so it is words, not a command (`pasteable`). Bidi marks are
+  taken out first (`bidiMark`): Claude Code 2.1.332 holds a message it
+  took them out of for review, and the run ended in a 502;
 - pastes a message's images as files (`userPieces`, `writeImage`): each
   base64 image is written to `image-N.<ext>` (0600) in a
   `magpie-claude-images-*` temp folder, and its path is pasted alone,

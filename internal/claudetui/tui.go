@@ -1331,7 +1331,7 @@ func pasteable(text string, busy bool) string {
 }
 
 // pasteClean is text without an escape that would end a paste early, nor
-// other control characters, its lines ended by \n.
+// other control characters or bidi marks, its lines ended by \n.
 func pasteClean(text string) string {
 	text = strings.ReplaceAll(text, "\r\n", "\n")
 	return strings.Map(func(r rune) rune {
@@ -1340,11 +1340,19 @@ func pasteClean(text string) string {
 			return '\n'
 		case r == '\n', r == '\t':
 			return r
-		case r < 0x20, r == 0x7f:
+		case r < 0x20, r == 0x7f, bidiMark(r):
 			return -1
 		}
 		return r
 	}, text)
+}
+
+// bidiMark is a bidi mark or control: U+061C, U+200E, U+200F, U+202A to
+// U+202E, U+2066 to U+2069. Claude Code 2.1.332 removes these on Enter and
+// holds the message for review instead of sending it.
+func bidiMark(r rune) bool {
+	return r == 0x061c || r == 0x200e || r == 0x200f ||
+		0x202a <= r && r <= 0x202e || 0x2066 <= r && r <= 0x2069
 }
 
 // send pastes a message's pieces into Claude Code's prompt, each once the
