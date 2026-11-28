@@ -4,7 +4,7 @@
 
 账号为 [qq01-hub](https://github.com/qq01-hub)，整合分支为 [fix/unanswered-issues-20261128](https://github.com/qq01-hub/magpie/tree/fix/unanswered-issues-20261128)
 
-以下是已经完成并审核的 12 项，本轮其余问题仍在独立工作树处理
+以下是已经完成并审核的 13 项，本轮其余问题仍在独立工作树处理
 
 | Issue | 修复与边界 | 独立分支 | 审核 HEAD |
 | --- | --- | --- | --- |
@@ -20,6 +20,7 @@
 | [#7992](https://github.com/yetone/magpie/issues/7992) | 技能路由描述在原有 1024 UTF-16 单位预算内选取能容纳的最长共同前缀，保留短描述和完整技能名 | [fix/7992-skill-description-budget](https://github.com/qq01-hub/magpie/tree/fix/7992-skill-description-budget) | `feed84b98918cea133aa03684c63cd6e29a3bf51` |
 | [#7870](https://github.com/yetone/magpie/issues/7870) | 上游明确的图片大小超限 400/413 可转到组内下一成员，原成员不冷却，普通请求错误、图片格式、数量及速率限制不误归类 | [fix/7870-image-size-group-failover](https://github.com/qq01-hub/magpie/tree/fix/7870-image-size-group-failover) | `99930ace8900c72e56a8c699296b28e036692d97` |
 | [#7969](https://github.com/yetone/magpie/issues/7969) | 从插件自身聚合列表发现朗读及转写模型，支持第二账号与本地模型别名，遵守禁用和供应商顺序，不把普通音频聊天模型当成语音接口 | [fix/7969-plugin-speech-discovery](https://github.com/qq01-hub/magpie/tree/fix/7969-plugin-speech-discovery) | `cc7d131bd5c0b547f1987e0ce1cb0dcd5a138717` |
+| [#7816](https://github.com/yetone/magpie/issues/7816) | 移除插件账号后将其专有模型移出已选列表，保留手动模型，旧编辑窗口保存不会加回，账号恢复后重新列出 | [fix/7816-plugin-delisted-picks](https://github.com/qq01-hub/magpie/tree/fix/7816-plugin-delisted-picks) | `07c609ae5da16b0892e48aa5b3485bad9e78a4b8` |
 
 ## 实际失败复现与验证
 
@@ -39,6 +40,7 @@
 | #7992 | 14 个技能仍被截到 40 字符档位且预算闲置，35 短描述加 8 长描述退化成只列名称 | 七项 RouterDesc 测试在独立分支及整合代码 `8a294c0cf` 上全部通过，覆盖 Unicode、80 rune 上限和名称溢出；较广的 Library 回归曾达到四分钟套件超时，其中 `TestSkillRouterUnnamedInView` 随后在整合代码上单独运行通过，耗时 214.05 秒，该单项结果不代表整个 Library 套件通过 |
 | #7870 | 本地真实 HTTP 请求中首成员的图片大小限制 400 被直接返回，下一成员请求次数为零 | 六项顶层和 26 个子测试全部通过，覆盖小图前后仍用首成员、大小图回退、不冷却、分类负例及原有通用 413 回退 |
 | #7969 | 最终 WorkBuddy 模型 fixture 在原生产代码上四项失败：audio-only TTS 被聊天列表中的候补取代，供应商次序后的 TTS 选择错误，第二账号专有模型和本地别名缺失 | 七项测试及相同七项 race 全部通过，0 跳过，覆盖禁用、Select none、用户选择、普通音频聊天负例，真实 Bun 插件宿主；转写在此基线 fixture 已通过，不虚报为另一条红测 |
+| #7816 | 撤回后台 relisted 回调后移除账号仍留下两项专有模型，撤回 Fetch models 的插件条件后 dropped 为空 | 两项实际 Bun 插件回归及 race 通过，另两项后台重列与恢复测试通过 race，整合代码同四项通过，未复测原作者的真实 CodeZ 账号 |
 
 说明：#7777 提交正文中边界红测的 “on the base” 指作者补丁上的边界版本，原始主干复现与作者补丁补强是两个独立失败记录
 
