@@ -23,12 +23,13 @@ const xaiUndecryptable = "Could not decrypt the provided encrypted_content. Ensu
 // sealer is a Grok-like Responses upstream: it seals its reasoning as
 // "sealed-by-<name>" and can read only its own.
 type sealer struct {
-	name    string
-	down    bool   // answering 429, for the conversation to move on
-	stream  bool   // refusing in the stream (response.failed), not as a 400
-	errJSON string // refusing as a 400 with this body, not xAI's words
-	mu      sync.Mutex
-	got     [][]string // the sealed reasoning each request carried
+	name      string
+	down      bool   // answering 429, for the conversation to move on
+	stream    bool   // refusing in the stream (response.failed), not as a 400
+	errJSON   string // refusing as a 400 with this body, not xAI's words
+	errStream string // refusing in a 200 response.failed event as api_error
+	mu        sync.Mutex
+	got       [][]string // the sealed reasoning each request carried
 }
 
 func (s *sealer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -53,6 +54,13 @@ func (s *sealer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(429)
 		io.WriteString(w, `{"error":{"message":"slow down"}}`)
+		return
+	case foreign && s.errStream != "":
+		w.Header().Set("Content-Type", "text/event-stream")
+		msg, _ := json.Marshal(s.errStream)
+		io.WriteString(w, sse(
+			`data: {"type":"response.created","response":{"id":"r-refused","model":"m"}}`,
+			`data: {"type":"response.failed","response":{"id":"r-refused","status":"failed","error":{"type":"api_error","message":`+string(msg)+`}}}`))
 		return
 	case foreign && !s.stream:
 		w.Header().Set("Content-Type", "application/json")
@@ -172,6 +180,8 @@ func TestForeignReasoningWords(t *testing.T) {
 		`{"error":{"message":"The encrypted content for item rs_1 could not be verified.","code":"invalid_encrypted_content"}}`,
 		"Grok (SuperGrok): Could not decrypt the provided encrypted_content.",
 		`{"error":{"message":"invalid encrypted summary","type":"invalid_request_error","param":null,"code":"validation_error"}}`,
+		azureOtherResource,
+		azureOtherResourceMasked,
 		relayCompaction,
 		"Could not decode the compaction blob. Ensure it is unmodified from the compact response.",
 	} {
@@ -179,7 +189,7 @@ func TestForeignReasoningWords(t *testing.T) {
 			t.Errorf("not matched: %s", m)
 		}
 	}
-	for _, m := range []string{"Invalid value for reasoning.effort", "model not found", "could not parse the JSON body", "Could not decode the request body."} {
+	for _, m := range []string{"Invalid value for reasoning.effort", "model not found", "could not parse the JSON body", "Could not decode the request body.", "The requested item was not found.", "The Azure OpenAI resource was not found.", "Access to the Azure OpenAI resource is denied."} {
 		if foreignReasoning.MatchString(m) {
 			t.Errorf("matched: %s", m)
 		}
@@ -336,6 +346,9 @@ func TestForeignSealGrokToCodexAccount(t *testing.T) {
 // no item.
 const azureSummary = `{"error":{"message":"invalid encrypted summary","type":"invalid_request_error","param":null,"code":"validation_error"}}`
 
+const azureOtherResource = `{"error":{"message":"The requested item was created under a different Azure OpenAI resource. Use the same resource that created the item to access it. [hub-] [trace_id=31cca053bbe31cf3e7c6fd32243c4fc0]","type":"invalid_request_error","param":"","code":null}}`
+const azureOtherResourceMasked = "OpenAI Responses bad request: The requested item was created under a different *** OpenAI resource. Use the same resource that created the item to access it. [hub-] [trace_id=eb8b0379f524f78fdaab677503c815dd]"
+
 // relayCompaction is what a key relay that proxies Grok passes back for
 // the reasoning item Codex hands it with "content": null beside its
 // encrypted_content (zminds #4412): xAI's own compaction-blob refusal,
@@ -445,6 +458,58 @@ func TestForeignSealAzureSummary(t *testing.T) {
 	}
 	if got := az.sent(); len(got) != 1 || len(got[0]) != 0 {
 		t.Fatalf("next turn sent %q, want one request without the seal", got)
+	}
+}
+
+// An Azure OpenAI resource refuses a history item another resource made,
+// without naming encrypted content. Magpie should retry without that item
+// and remember the refusal, including an api_error in a 200 SSE reply.
+func TestForeignSealAzureOtherResource(t *testing.T) {
+	for _, tc := range []struct {
+		name, errJSON, errStream string
+	}{
+		{"json error", azureOtherResource, ""},
+		{"masked stream api_error", "", azureOtherResourceMasked},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			fresh(t)
+			refusedSeals.Lock()
+			refusedSeals.m = map[string]sealsRefused{}
+			refusedSeals.Unlock()
+			az := &sealer{name: "azure", errJSON: tc.errJSON, errStream: tc.errStream}
+			up := httptest.NewServer(az)
+			t.Cleanup(up.Close)
+			if err := provider.Save(provider.Provider{ID: "az1", Name: "Azure", Key: "k", Models: []string{"gpt-6.1-sol"}, Responses: up.URL + "/v1"}); err != nil {
+				t.Fatal(err)
+			}
+			s := New()
+			turn := func(items ...string) (int, string) {
+				t.Helper()
+				in := `{"type":"message","role":"user","content":[{"type":"input_text","text":"continue"}]}`
+				for _, it := range items {
+					in += "," + it
+				}
+				rec := httptest.NewRecorder()
+				req := httptest.NewRequest("POST", "/v1/responses", strings.NewReader(`{"model":"az1/gpt-6.1-sol","stream":true,"input":[`+in+`]}`))
+				req.Header.Set("session_id", "thread-azure-resource")
+				s.Handler().ServeHTTP(rec, req)
+				return rec.Code, rec.Body.String()
+			}
+			sealed := `{"type":"reasoning","id":"rs_other_resource","summary":[],"encrypted_content":"sealed-by-other-resource"}`
+			call := `{"type":"function_call","call_id":"call_1","name":"shell","arguments":"{}"},{"type":"function_call_output","call_id":"call_1","output":"ok"}`
+			if code, body := turn(sealed, call); code != 200 || !strings.Contains(body, "from azure") {
+				t.Fatalf("first turn: %d %s", code, body)
+			}
+			if got := az.sent(); len(got) != 2 || len(got[0]) != 1 || len(got[1]) != 0 {
+				t.Fatalf("first turn sent %q, want the foreign seal once, then none", got)
+			}
+			if code, body := turn(sealed, call); code != 200 || !strings.Contains(body, "from azure") {
+				t.Fatalf("next turn: %d %s", code, body)
+			}
+			if got := az.sent(); len(got) != 1 || len(got[0]) != 0 {
+				t.Fatalf("next turn sent %q, want one request without the refused seal", got)
+			}
+		})
 	}
 }
 
