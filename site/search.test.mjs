@@ -86,23 +86,33 @@ test("search: docs-index.sums is current, what the Go suite checks the docs page
 // #7065: the commands the stale-index messages name write the files. Each
 // runs on a copy of the site, so a stale committed index still fails the
 // tests above instead of being written over.
-test("search: node search-index.mjs, llms-full.mjs and docs-index.mjs each write every file", async () => {
+test("search: index commands write every file from spaces and linked paths", async (t) => {
   const { execFileSync } = await import("node:child_process");
-  const { cp, mkdtemp, rm } = await import("node:fs/promises");
+  const { cp, mkdir, mkdtemp, rm, symlink } = await import("node:fs/promises");
   const { tmpdir } = await import("node:os");
   const { join } = await import("node:path");
-  const site = new URL("./", import.meta.url).pathname;
+  const { fileURLToPath } = await import("node:url");
+  const site = fileURLToPath(new URL("./", import.meta.url));
   for (const script of ["search-index.mjs", "llms-full.mjs", "docs-index.mjs"]) {
-    const dir = await mkdtemp(join(tmpdir(), "site-index-"));
+    const dir = await mkdtemp(join(tmpdir(), "site index # "));
     try {
-      for (const f of ["search-index.mjs", "llms-full.mjs", "docs-index.mjs"]) await cp(join(site, f), join(dir, f));
-      await cp(join(site, "public/llms.txt"), join(dir, "public/llms.txt"));
-      await cp(join(site, "public/docs"), join(dir, "public/docs"), { recursive: true });
-      await cp(join(site, "public/search"), join(dir, "public/search"), { recursive: true });
-      for (const f of ["public/search/en.json", "public/llms-full.txt", "docs-index.sums"]) await rm(join(dir, f), { force: true });
-      execFileSync(process.execPath, [script], { cwd: dir, stdio: "pipe", timeout: 60_000 });
-      for (const f of ["public/search/en.json", "public/llms-full.txt", "docs-index.sums"]) {
-        assert.equal(await readFile(join(dir, f), "utf8"), await readFile(join(site, f), "utf8"), `${script} wrote ${f}`);
+      const actual = join(dir, "checkout");
+      const linked = join(dir, "linked checkout");
+      await mkdir(actual);
+      for (const f of ["search-index.mjs", "llms-full.mjs", "docs-index.mjs", "entry.mjs"]) await cp(join(site, f), join(actual, f));
+      await cp(join(site, "public/llms.txt"), join(actual, "public/llms.txt"));
+      await cp(join(site, "public/docs"), join(actual, "public/docs"), { recursive: true });
+      await cp(join(site, "public/search"), join(actual, "public/search"), { recursive: true });
+      await symlink(actual, linked, process.platform === "win32" ? "junction" : "dir");
+      const generated = ["public/search/en.json", "public/search/zh.json", "public/search/ja.json", "public/llms-full.txt", "docs-index.sums"];
+      for (const entry of [join(actual, script), join(linked, script)]) {
+        await t.test(`${script}: ${entry === join(actual, script) ? "spaces" : "linked path"}`, async () => {
+          for (const f of generated) await rm(join(actual, f), { force: true });
+          execFileSync(process.execPath, [entry], { cwd: dir, stdio: "pipe", timeout: 60_000 });
+          for (const f of generated) {
+            assert.equal(await readFile(join(actual, f), "utf8"), await readFile(join(site, f), "utf8"), `${script} wrote ${f}`);
+          }
+        });
       }
     } finally {
       await rm(dir, { recursive: true, force: true });

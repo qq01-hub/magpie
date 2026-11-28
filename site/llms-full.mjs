@@ -3,6 +3,7 @@
 // Run `node llms-full.mjs` after changing a docs page; a test fails while
 // the committed file differs from what this builds.
 import { readFile, readdir } from "node:fs/promises";
+import { isMain } from "./entry.mjs";
 
 const pub = new URL("./public/", import.meta.url);
 
@@ -86,7 +87,7 @@ export async function build() {
 // Not awaited at the top: docs-index.mjs imports this module back, and an
 // import of it waits for this one to finish, which a top-level await of
 // that import never lets it do (node exits 13 with nothing written, #7065)
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isMain(import.meta.url)) {
   import("./docs-index.mjs").then((m) => m.writeAll()).catch((e) => {
     console.error(e);
     process.exitCode = 1;

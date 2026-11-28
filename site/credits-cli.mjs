@@ -22,6 +22,7 @@ import { readFileSync, writeFileSync, renameSync, existsSync, mkdirSync } from "
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { credit, everyone, thanks, wall, refKey, parse, renderWall } from "./credits.mjs";
+import { isMain } from "./entry.mjs";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const warn = (m) => process.stderr.write(`credits: ${m}\n`);
@@ -140,7 +141,7 @@ async function cmdWall(out = join(here, "public", "contributors.json")) {
   warn(`${people.length} people over ${released.length} released commits → ${out}`);
 }
 
-if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
+if (isMain(import.meta.url)) {
   const [cmd, arg] = process.argv.slice(2);
   const run = cmd === "thanks" ? cmdThanks(arg) : cmd === "wall" ? cmdWall(arg) : Promise.reject(new Error("usage: credits-cli.mjs thanks <range> | wall [out]"));
   run.catch((e) => { warn(e.message); process.exit(cmd === "wall" ? 0 : 1); });
