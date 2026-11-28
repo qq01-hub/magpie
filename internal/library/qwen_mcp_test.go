@@ -120,10 +120,21 @@ func TestQwenMCPServers(t *testing.T) {
 	}
 
 	// $QWEN_HOME moves the file
+	old := read(t, cfg)
 	q := filepath.Join(h, "qwen-home")
 	t.Setenv("QWEN_HOME", q)
 	write(t, filepath.Join(q, "settings.json"), "{}\n")
 	if tg := targetByID("qwen"); tg == nil || tg.MCP == nil || tg.MCP.Path != filepath.Join(q, "settings.json") {
 		t.Fatalf("Qwen Code under QWEN_HOME: %+v", tg)
+	}
+	ok(t)(SaveServer("", Server{Name: "custom-home", Transport: "http", URL: "https://mcp.example.com/custom-home", Agents: []string{"qwen"}}))
+	if es, err = targetByID("qwen").MCP.entries(); err != nil {
+		t.Fatal(err)
+	}
+	if e := es["custom-home"]; e["httpUrl"] != "https://mcp.example.com/custom-home" {
+		t.Errorf("QWEN_HOME's settings.json: %v", e)
+	}
+	if got := read(t, cfg); got != old {
+		t.Errorf("the old settings.json changed after QWEN_HOME moved")
 	}
 }
