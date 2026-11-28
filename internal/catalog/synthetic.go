@@ -1,8 +1,10 @@
 package catalog
 
 import (
+	"math"
 	"net/url"
 	"slices"
+	"strconv"
 	"strings"
 )
 
@@ -24,7 +26,9 @@ func syntheticFacts(m *Model, r liveModel) {
 	if slices.Contains(strs(r.SupportedFeatures), "reasoning") {
 		m.Reasoning = true
 	}
-	if n, ok := r.OutputLength.(float64); ok && n > 0 {
+	// A fractional or out-of-int-range value is no usable token limit;
+	// keep the compatible field already read instead of truncating it.
+	if n, ok := r.OutputLength.(float64); ok && n > 0 && n < math.Exp2(strconv.IntSize-1) && math.Trunc(n) == n {
 		m.Output = int(n)
 	}
 	if strings.HasPrefix(m.ID, "infinite:") && !strings.Contains(strings.ToLower(m.Name), "infinite") {
