@@ -368,6 +368,14 @@ func searchCall(it map[string]any) bool {
 	}
 	args, _ := it["arguments"].(string)
 	delete(it, "name")
-	it["type"], it["execution"], it["arguments"] = "tool_search_call", "client", parseArgs(args)
+	it["type"], it["execution"], it["arguments"] = "tool_search_call", "client", searchCallArgs(args)
 	return true
+}
+
+// searchCallArgs prepares arguments for the client-run tool_search_call:
+// Codex reads its integer limit as usize even though its schema says number.
+// Relayed calls are created after intTidy has seen the upstream function_call,
+// so normalize them here, where both relayed and translated calls are built.
+func searchCallArgs(args string) json.RawMessage {
+	return parseArgs(wholeArgs(args))
 }
