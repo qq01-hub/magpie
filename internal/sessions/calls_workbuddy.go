@@ -1,12 +1,9 @@
 package sessions
 
 import (
-	"bufio"
 	"bytes"
 	"cmp"
 	"encoding/json"
-	"errors"
-	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -155,55 +152,49 @@ func buddyGatewayIDs(dir string) map[string]bool {
 	return ids
 }
 
-// readWorkBuddyCalls reads a session's calls whole (WorkBuddy's, or CodeBuddy
-// Code's, as f.agent says): its usage lines repeat
+// buddyCallCarry is the last usage line's reply id, and the configuration
+// used to leave gateway calls out, rebuilding the calls on the next
+// append when that configuration changes, as the whole-file reader did
+type buddyCallCarry struct {
+	Last, ModelsStamp string
+}
+
+func buddyCallsBegin(st *callFile, f file) {
+	st.Session = strings.TrimPrefix(f.key, f.agent+":")
+	st.Buddy = &buddyCallCarry{ModelsStamp: ocStamp(filepath.Join(buddyDir(f.agent), "models.json"))}
+}
+
+func buddyCallsKept(st *callFile) bool {
+	return st.Buddy != nil && st.Buddy.ModelsStamp == ocStamp(filepath.Join(buddyDir(st.Agent), "models.json"))
+}
+
+// buddyCallLine reads WorkBuddy's or CodeBuddy Code's usage lines, which repeat
 // the same messageId as a reply goes on, so the last line for a reply is the
 // one that counts. A reply WorkBuddy brought over from its older history
 // names no messageId at all, and each of those is a call of its own, as the
 // summary reader counts them (workbuddyLine replaces the call before it only
 // when the id is the same non-empty one).
-func readWorkBuddyCalls(f file) (*callFile, bool) {
-	r, err := openLines(f.path)
-	if err != nil {
-		return &callFile{Path: f.path, Agent: f.agent}, false
+func buddyCallLine(st *callFile, b []byte) {
+	b = bytes.TrimSpace(b)
+	if len(b) == 0 || len(b) > maxLine || !bytes.Contains(b, wbUsage) {
+		return
 	}
-	defer r.Close()
-	st := &callFile{Agent: f.agent, Path: f.path, Session: strings.TrimPrefix(f.key, f.agent+":")}
-	dir := buddyDir(f.agent)
-	br := bufio.NewReaderSize(r, scanBuffer(r, 0))
-	last := "" // the messageId the call before this line carried
-	for {
-		b, err := br.ReadBytes('\n')
-		if err != nil {
-			if !errors.Is(err, io.EOF) || len(bytes.TrimSpace(b)) == 0 {
-				break
-			}
-		}
-		b = bytes.TrimSpace(b)
-		if len(b) > 0 && len(b) <= maxLine && bytes.Contains(b, wbUsage) {
-			var l wbLine
-			if json.Unmarshal(b, &l) == nil && l.ProviderData.Usage != nil {
-				// the id this line carried, as the summary reader keeps it:
-				// a zero-token line is a call the same, and the reply after
-				// it is a new one, so both readers end on the same call
-				id := st.str(l.ProviderData.MessageID)
-				if c, ok := workbuddyCall(st, dir, l, b); ok {
-					// a zero-token line made no call, so the call before is
-					// this reply's only when it carries the same id
-					if n := len(st.Calls); c.Msg != "" && c.Msg == last && n > 0 && st.Calls[n-1].Msg == c.Msg {
-						st.Calls[len(st.Calls)-1] = c // another line of the reply before it
-					} else {
-						st.Calls = append(st.Calls, c)
-					}
-				}
-				last = id
-			}
-		}
-		if err != nil {
-			break
+	var l wbLine
+	if json.Unmarshal(b, &l) != nil || l.ProviderData.Usage == nil {
+		return
+	}
+	// A zero-token usage line still ends the previous reply's run, as the
+	// summary reader counts it, even though it adds no call of its own
+	id := st.str(l.ProviderData.MessageID)
+	if c, ok := workbuddyCall(st, buddyDir(st.Agent), l, b); ok {
+		if n := len(st.Calls); c.Msg != "" && c.Msg == st.Buddy.Last && n > 0 && st.Calls[n-1].Msg == c.Msg {
+			st.Calls[n-1] = c
+			st.dirty[n-1] = true
+		} else {
+			st.Calls = append(st.Calls, c)
 		}
 	}
-	return st, true
+	st.Buddy.Last = id
 }
 
 // workbuddyCall is a line's providerData.usage as a call: the reply's model,

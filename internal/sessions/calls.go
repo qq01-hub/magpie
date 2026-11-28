@@ -111,6 +111,8 @@ type callFile struct {
 	Dsh *dshCarry
 	// Grok Build
 	Grok *grokCallCarry
+	// WorkBuddy, WorkBuddy AI and CodeBuddy Code
+	Buddy *buddyCallCarry
 }
 
 // cxRun is where a rollout's read stands: what its lines have said so far.
@@ -484,6 +486,10 @@ func (st *callFile) cloneState() *callFile {
 	if st.Grok != nil {
 		g := *st.Grok
 		c.Grok = &g
+	}
+	if st.Buddy != nil {
+		b := *st.Buddy
+		c.Buddy = &b
 	}
 	return &c
 }

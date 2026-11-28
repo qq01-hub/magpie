@@ -1144,8 +1144,8 @@ A call an agent made without magpie reaches Usage only when its own files
 are read (`sessions.Calls`, from `callSources` in
 [`calls.go`](../../internal/sessions/calls.go)). The readers are Claude
 Code's, Claude Desktop's and Cowork's, Codex's (and both in WSL), and,
-read a file at a time (`wholeCallReaders` in
-[`call_cache.go`](../../internal/sessions/call_cache.go)), OpenCode's
+through the format-specific readers in
+[`call_cache.go`](../../internal/sessions/call_cache.go), OpenCode's
 (#680), ZCode's, DeepSeek Harness's (`dsh`), WorkBuddy's, WorkBuddy
 AI's (the international build's own `~/.workbuddy-ai`, read as
 WorkBuddy's with its own models.json, listed and deletable under its own
@@ -1230,6 +1230,17 @@ calls. Verification: `TestMiniMaxCodeCalls`, `TestKimiCode*` (the
 reporter's real wire files), `TestCodeBuddyCalls`, `TestWorkBuddyCalls*`,
 `TestPiCalls*` (Pi 1.1.0's and omp 18.9.1's own files) and
 `TestWSLSessionsListed`.
+
+WorkBuddy, WorkBuddy AI and CodeBuddy Code append JSONL replies, so their
+calls use `lineCallReaders`: only complete new lines are parsed, and an
+unfinished last line waits for its newline. `buddyCallCarry` keeps the last
+usage line's message id in memory and in the call shard. An appended update
+of that reply replaces its call and patches the shard; a zero-token usage
+line still ends the previous reply's run. A truncated or overwritten file,
+or a changed models.json on the next append, rebuilds the calls from the
+start. Their parser versions invalidate old whole-file shards once; other
+agents' shards stay valid. Verification: `TestBuddyCallsAppendAndResume`,
+`TestBuddyCallsWaitForWholeLine` and `TestBuddyCallsRecheckGatewayOnAppend`.
 
 Antigravity CLI's (agy's) conversations are sessions too (RickyWei on
 Discord): one per `brain/<conversation id>/` of `~/.gemini/antigravity-cli`,
