@@ -583,18 +583,19 @@ type ServerView struct {
 
 // SkillView is a library skill as the page shows it.
 type SkillView struct {
-	Name        string            `json:"name"`
-	Bundle      string            `json:"bundle,omitempty"` // the plugin it came with
-	Description string            `json:"description"`
-	Source      string            `json:"source,omitempty"`
-	Kind        string            `json:"kind"`             // github, git, folder, or "" for one kept in the library
-	Origin      string            `json:"origin,omitempty"` // on GitHub, as CC Switch installed it: it can be updated from there
-	Repo        string            `json:"repo,omitempty"`   // the repository it came from, however it came in, for the page to group by
-	Icon        string            `json:"icon,omitempty"`
-	Agents      []string          `json:"agents"`
-	Missing     bool              `json:"missing,omitempty"` // its folder is gone
-	Problems    map[string]string `json:"problems,omitempty"`
-	Check       *SkillCheck       `json:"check,omitempty"` // what the last check for updates found
+	Name             string            `json:"name"`
+	Bundle           string            `json:"bundle,omitempty"` // the plugin it came with
+	Description      string            `json:"description"`
+	FrontmatterError string            `json:"frontmatterError,omitempty"`
+	Source           string            `json:"source,omitempty"`
+	Kind             string            `json:"kind"`             // github, git, folder, or "" for one kept in the library
+	Origin           string            `json:"origin,omitempty"` // on GitHub, as CC Switch installed it: it can be updated from there
+	Repo             string            `json:"repo,omitempty"`   // the repository it came from, however it came in, for the page to group by
+	Icon             string            `json:"icon,omitempty"`
+	Agents           []string          `json:"agents"`
+	Missing          bool              `json:"missing,omitempty"` // its folder is gone
+	Problems         map[string]string `json:"problems,omitempty"`
+	Check            *SkillCheck       `json:"check,omitempty"` // what the last check for updates found
 	// Always are the agents that have it whatever the library gives them:
 	// it is kept in ~/.agents/skills, which they read themselves (#595)
 	Always []string `json:"always,omitempty"`
@@ -1019,7 +1020,7 @@ func readView(problems []Problem, kind readKind) (*View, error) {
 			sv.Origin = o.String()
 		}
 		if m, ok := readMeta(skillDir(s.Name)); ok {
-			sv.Description, sv.Manual = m.Description, m.Manual
+			sv.Description, sv.Manual, sv.FrontmatterError = m.Description, m.Manual, m.FrontmatterError
 		} else {
 			sv.Missing = true
 		}

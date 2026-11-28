@@ -25,9 +25,11 @@ import (
 type NewSkill struct {
 	// ID is the skill's folder (on GitHub, in the git repository, or on
 	// this machine), what the page adds it from and sets it aside by
-	ID          string `json:"id"`
-	Name        string `json:"name"`
-	Description string `json:"description,omitempty"`
+	ID               string `json:"id"`
+	Name             string `json:"name"`
+	DisplayName      string `json:"displayName,omitempty"`
+	Description      string `json:"description,omitempty"`
+	FrontmatterError string `json:"frontmatterError,omitempty"`
 	// Kind is where it is: github, git or folder
 	Kind string `json:"kind"`
 	// Repo is the repository (owner/repo, or the address git fetches),
@@ -383,7 +385,8 @@ func findNew(l *Library, repo, ref string, f *fetcher, limited *atomic.Pointer[e
 			continue
 		}
 		id := (&Source{Kind: "github", Repo: repo, Ref: ref, Path: c.Path}).String()
-		found = append(found, NewSkill{ID: id, Name: c.Name, Description: c.Description, Kind: "github", Repo: repo, Ref: ref, Path: c.Path, From: from, Agents: slices.Clone(agents)})
+		found = append(found, NewSkill{ID: id, Name: c.Name, DisplayName: c.DisplayName, Description: c.Description, FrontmatterError: c.FrontmatterError,
+			Kind: "github", Repo: repo, Ref: ref, Path: c.Path, From: from, Agents: slices.Clone(agents)})
 	}
 	return found, true
 }
@@ -430,7 +433,8 @@ func findNewGit(l *Library, repo, ref string, f *fetcher) (found []NewSkill, ok 
 			continue
 		}
 		id := (&Source{Kind: "git", Repo: repo, Ref: ref, Path: c.Path}).String()
-		found = append(found, NewSkill{ID: id, Name: c.Name, Description: c.Description, Kind: "git", Repo: repo, Ref: ref, Path: c.Path, From: from, Agents: slices.Clone(agents)})
+		found = append(found, NewSkill{ID: id, Name: c.Name, DisplayName: c.DisplayName, Description: c.Description, FrontmatterError: c.FrontmatterError,
+			Kind: "git", Repo: repo, Ref: ref, Path: c.Path, From: from, Agents: slices.Clone(agents)})
 	}
 	return found, true
 }
@@ -473,7 +477,8 @@ func findNewFolder(l *Library, root string) (found []NewSkill, ok bool) {
 		if _, in := relUnder(skillsDir(), from); in {
 			continue
 		}
-		found = append(found, NewSkill{ID: from, Name: c.Name, Description: c.Description, Kind: "folder", Repo: root, Path: c.Path, From: root, Agents: slices.Clone(agents)})
+		found = append(found, NewSkill{ID: from, Name: c.Name, DisplayName: c.DisplayName, Description: c.Description, FrontmatterError: c.FrontmatterError,
+			Kind: "folder", Repo: root, Path: c.Path, From: root, Agents: slices.Clone(agents)})
 	}
 	return found, true
 }

@@ -204,8 +204,9 @@ func skillDir(name string) string { return filepath.Join(skillsDir(), name) }
 
 // meta is what a SKILL.md says of itself in its front matter.
 type meta struct {
-	Name        string `yaml:"name" json:"name"`
-	Description string `yaml:"description" json:"description"`
+	Name             string `yaml:"name" json:"name"`
+	Description      string `yaml:"description" json:"description"`
+	FrontmatterError string `yaml:"-" json:"-"`
 	// Manual is its disable-model-invocation: Claude Code runs it only
 	// when the user types /name, never on the model's own (sunset3279 on
 	// Discord). False when the front matter doesn't parse, or the value
@@ -232,7 +233,9 @@ func parseMeta(b []byte) meta {
 	s := strings.ReplaceAll(string(b), "\r\n", "\n")
 	if rest, ok := strings.CutPrefix(s, "---\n"); ok {
 		if front, _, ok := strings.Cut(rest, "\n---"); ok {
-			_ = yaml.Unmarshal([]byte(front), &m)
+			if err := yaml.Unmarshal([]byte(front), &m); err != nil {
+				m = meta{FrontmatterError: err.Error()}
+			}
 		}
 	}
 	m.Name, m.Description = strings.TrimSpace(m.Name), strings.Join(strings.Fields(m.Description), " ")
@@ -250,6 +253,9 @@ var unsafe = lazyre.New(`[^A-Za-z0-9_-]+`)
 // only a folder whose name is no name either leaves the name as it came
 // out.
 func nameFor(folder string, m meta) string {
+	if m.FrontmatterError != "" {
+		return fitName(folder)
+	}
 	if n := fitName(m.Name); n != "" && !dropsLetters(m.Name) {
 		return n
 	}
@@ -1041,10 +1047,12 @@ func (l *Library) sweepShared(all []*Target, res *Result) {
 // Candidate is a skill found where the user pointed: in a repository, or
 // in a folder.
 type Candidate struct {
-	Path        string `json:"path"` // in the repository or the folder; "" for its root
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	Have        bool   `json:"have"` // the library has this skill (from here, or the very same files)
+	Path             string `json:"path"`                  // in the repository or the folder; "" for its root
+	Name             string `json:"name"`                  // the name the library can install as
+	DisplayName      string `json:"displayName,omitempty"` // the folder's literal name when metadata is unreadable
+	Description      string `json:"description"`
+	FrontmatterError string `json:"frontmatterError,omitempty"`
+	Have             bool   `json:"have"` // the library has this skill (from here, or the very same files)
 	// As is the name the library has it by, or would add it by, when
 	// that isn't Name: another skill from elsewhere has that name
 	As string `json:"as,omitempty"`
@@ -1358,7 +1366,11 @@ func candidates(root, sub, top string) []Candidate {
 			if rel == "." {
 				rel, folder = "", top
 			}
-			out = append(out, Candidate{Path: filepath.ToSlash(rel), Name: nameFor(folder, m), Description: m.Description})
+			c := Candidate{Path: filepath.ToSlash(rel), Name: nameFor(folder, m), Description: m.Description, FrontmatterError: m.FrontmatterError}
+			if m.FrontmatterError != "" {
+				c.DisplayName = folder
+			}
+			out = append(out, c)
 			if skillsBeside(dir) < 2 {
 				return
 			}
@@ -2592,10 +2604,11 @@ func sharing(t *Target) []string {
 
 // FoundSkill is a skill an agent has that the library doesn't.
 type FoundSkill struct {
-	Name        string   `json:"name"`
-	Description string   `json:"description"`
-	Agents      []string `json:"agents"`           // the agents that have this very folder
-	Others      []string `json:"others,omitempty"` // agents with another by that name
+	Name             string   `json:"name"`
+	Description      string   `json:"description"`
+	FrontmatterError string   `json:"frontmatterError,omitempty"`
+	Agents           []string `json:"agents"`           // the agents that have this very folder
+	Others           []string `json:"others,omitempty"` // agents with another by that name
 	// Copies are the agents with another folder by that name holding the
 	// very same files (CC Switch copies a skill into each agent): brought
 	// in, they get the library's in its place
@@ -2661,7 +2674,7 @@ func foundSkills(l *Library) []FoundSkill {
 			r := realDir(p)
 			switch {
 			case f == nil:
-				f = &FoundSkill{Name: name, Description: m.Description, Manual: m.Manual, Agents: []string{}, real: r, at: p}
+				f = &FoundSkill{Name: name, Description: m.Description, FrontmatterError: m.FrontmatterError, Manual: m.Manual, Agents: []string{}, real: r, at: p}
 				switch {
 				case pl.lib:
 					f.Library = p
