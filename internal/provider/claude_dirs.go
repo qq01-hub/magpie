@@ -77,11 +77,13 @@ func readClaudeDirErr(dir string) (claudeCredentials, bool, error) {
 		out, err := proc.Command("security", "find-generic-password", "-s", claudeDirService(dir), "-a", claudeKeychainAccount(), "-w").Output()
 		if err == nil {
 			b, _ := keychainText(bytes.TrimSpace(out))
-			if c, ok := parseClaudeCredentials(b); c.raw != nil {
-				// the item there is the sign-in, emptied or not: Claude
-				// Code reads no file beside it
-				return c, ok, nil
+			c, ok := parseClaudeCredentials(b)
+			if c.raw == nil {
+				return claudeCredentials{}, false, errClaudeKeychainUnread
 			}
+			// the item there is the sign-in, emptied or not: Claude
+			// Code reads no file beside it
+			return c, ok, nil
 		} else if !keychainItemMissing(err) {
 			return claudeCredentials{}, false, errClaudeKeychainUnread
 		}
