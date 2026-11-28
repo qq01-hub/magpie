@@ -4305,6 +4305,10 @@ var filterReasons = map[string]string{
 	// agent took it for a failed sign-in (sweanng on Discord, ZCode:
 	// "Provider authentication failed", reason=auth_failed status=403)
 	"content_policy_rejected": "content_policy_rejected",
+	// InternLM's content safety filter code and error type:
+	// {"type":"content_check_error","code":"content_check_rejected"}
+	"content_check_rejected": "content_filter",
+	"content_check_error":    "content_filter",
 	// StepFun's error type, its filter refusing with an HTTP 451 (#5089):
 	// read from the error object, the refusal is the request's, and the
 	// group's next member is asked rather than the 451 handed on
@@ -4839,6 +4843,9 @@ func policyRefusal(raw []byte) (string, bool) {
 		return note(c)
 	case c == "1301" && strings.Contains(msg, "敏感"):
 		// Zhipu's: "系统检测到输入或生成内容可能包含不安全或敏感内容"
+		return note("sensitive")
+	case strings.Contains(msg, "The request contains sensitive content"):
+		// InternLM's: "The request contains sensitive content. Please modify your input and try again."
 		return note("sensitive")
 	case c == "invalid_prompt" && flaggedWords.MatchString(msg):
 		return note(c)
