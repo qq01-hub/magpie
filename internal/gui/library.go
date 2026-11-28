@@ -16,6 +16,7 @@ import (
 	"github.com/yetone/magpie/internal/gateway"
 	"github.com/yetone/magpie/internal/library"
 	"github.com/yetone/magpie/internal/mcpauth"
+	"github.com/yetone/magpie/internal/plugin"
 	"github.com/yetone/magpie/internal/provider"
 	"github.com/yetone/magpie/internal/settings"
 )
@@ -120,9 +121,21 @@ func libraryRead(res *library.Result, glance bool) (libraryJSON, error) {
 		read = library.Glance
 	}
 	v, err := read(p)
+	if v != nil {
+		libraryPluginIcons(v.Servers)
+	}
 	home, _ := os.UserHomeDir()
 	return libraryJSON{View: v, Result: res, Home: home, Problems: p,
 		SubagentModels: subagentModels(), CodexSubagentModel: provider.CodexSubagentModel()}, err
+}
+
+func libraryPluginIcons(servers []library.ServerView) {
+	for i := range servers {
+		s := &servers[i]
+		if s.Plugin != "" && s.Icon == "" {
+			s.Icon = provider.PluginOwnIcon(plugin.InstalledIcon(s.Plugin))
+		}
+	}
 }
 
 // instructionsJSON answers a change to the instructions: what the page's
