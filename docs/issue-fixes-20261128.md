@@ -4,7 +4,7 @@
 
 账号为 [qq01-hub](https://github.com/qq01-hub)，整合分支为 [fix/unanswered-issues-20261128](https://github.com/qq01-hub/magpie/tree/fix/unanswered-issues-20261128)
 
-以下是已经完成并审核的 19 项，本轮其余问题仍在独立工作树处理
+以下是本轮完成并审核的 20 项，均保留独立分支，发布回复前逐条确认 issue 仍开放且没有评论
 
 | Issue | 修复与边界 | 独立分支 | 审核 HEAD |
 | --- | --- | --- | --- |
@@ -27,6 +27,7 @@
 | [#7888](https://github.com/yetone/magpie/issues/7888) | 同源余额刷新错开请求，429 后按 Retry-After 或指数退避等待并保留上次余额，探测限流不记录为无余额接口，等待可取消 | [fix/7888-balance-refresh-429](https://github.com/qq01-hub/magpie/tree/fix/7888-balance-refresh-429) | `eff2ed3148b16970a28ffd8de6f664c4cd68df1e` |
 | [#7894](https://github.com/yetone/magpie/issues/7894) | 插件签到按账号各自限时 10 分钟，保留调用方取消、较短截止时间和 context 值，内置签到维持 2 分钟整轮限制 | [fix/7894-plugin-checkin-budget](https://github.com/qq01-hub/magpie/tree/fix/7894-plugin-checkin-budget) | `03afc7e401b74565fc7e252b3e30db775e44b699` |
 | [#7574](https://github.com/yetone/magpie/issues/7574) | Windows Volta 默认安装的 Codex、Claude Code、omp 使用 Volta 更新，核对管理器元数据与入口归属，不误改普通 npm 或项目临时版本 | [fix/7574-windows-volta-updates](https://github.com/qq01-hub/magpie/tree/fix/7574-windows-volta-updates) | `c1f8056bd1e26e01b07e51f79b08f918b264e227` |
+| [#7959](https://github.com/yetone/magpie/issues/7959) | Copilot Gemini 4 的 reasoning_text 进入摘要、指标和续传，小预算预留思考空间，关闭思考映射 low，保留输出上限和协议字段优先级 | [fix/7959-copilot-gemini-reasoning](https://github.com/qq01-hub/magpie/tree/fix/7959-copilot-gemini-reasoning) | `a164e25315a163b30e6656eee812f66645dadefc` |
 
 ## 实际失败复现与验证
 
@@ -53,6 +54,7 @@
 | #7888 | 旧余额路径同源请求间隔为零，429 后第二次读取没有等待；作者补丁对已取消 context 仍返回成功 | 六项余额与两项取消测试及两个子案例通过 `-race -count=20`，整合代码同八项通过，覆盖秒数和 HTTP-date Retry-After、余额不足负例、迟到成功、探测和 last-good；额外 provider 整包在 `TestRestartSwitchedCodexAppReal` 失败并 panic，87.266 秒退出，未作为通过 |
 | #7894 | 恢复旧的整轮 2 分钟限制后，两个分别耗时 3 分钟的插件账号都返回 deadline exceeded | 六项测试通过 race，整合代码同六项通过 race，覆盖两个账号完成、第 4 分钟取消、context 值及更短调用方截止时间、内置 2 分钟限制和实际本地插件宿主，不调用真实账号 |
 | #7574 | 旧生产代码对 Volta 管理的 Claude 入口返回未知安装来源 | 本地假 Volta 命令覆盖三个工具的实际识别、CLI 数据和更新执行路径，以及普通 npm、fetched/project/异常元数据，整合代码与托管版本两项邻接测试共三项通过，Windows/Linux agent vet 通过，没有运行真实工具更新 |
+| #7959 | 原始基线丢失 Responses/Messages 思考摘要、漏记指标及完整 Chat 思考，小预算原样发送；中间实现另复现了 Messages 关闭思考未留低档空间、Chat output_config 档位被忽略的预算边界 | 五项顶层、23 个子测试全部通过，覆盖三个 HTTP 入口、流式和完整回复、opaque、字段优先级、用户输出上限和账号/模型范围，没有调用真实 Copilot；基线测试中一项冲突字段的错误预期已按既有 Anthropic 契约纠正，不把该错误预期算作生产缺陷 |
 
 说明：#7777 提交正文中边界红测的 “on the base” 指作者补丁上的边界版本，原始主干复现与作者补丁补强是两个独立失败记录
 
@@ -75,7 +77,9 @@ go test -tags nogui -run '^Test(GeminiThoughtsOnlyWhenIncluded|GeminiThoughtsOnl
 
 ## 验证范围与限制
 
-尚未完成本轮完整 `go test -tags nogui ./...`，以上是定向回归、静态检查和构建结果，不能解释为整仓测试全部通过
+最终 20 项整合生产 HEAD 为 `0bcaab29df1454f0162197441de96207824ec5f9`，七个相关包统一回归共 148 个测试及子案例通过，其中顶层测试 86 个，0 失败，2 个既有 Unix 命令 fixture 在 Windows 跳过，分别为 `TestClaudeManagedCLIVersion` 和 `TestAgyCLIVersionWithoutUpdater`，对应的跨平台新增行为测试通过
+
+本轮完整 `go test -tags nogui -count=1 -timeout 10m -json ./...` 已启动，另设整体 25 分钟截止，当前结果仍在收集，不能解释为整仓测试全部通过
 
 额外完整 provider 包测试遇到 `TestRestartSwitchedCodexAppReal` 失败：helper 无输出后测试访问空切片，该失败在本轮未改动的固定生产基线上也已实际复现，相关 Claude 定向测试通过
 
