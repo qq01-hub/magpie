@@ -67,7 +67,6 @@ func TestCodeBuddyInWorkBuddysFolderIsReadOnce(t *testing.T) {
 	// its IDE host set them on Windows (mxl2498, cunnak, Tsuki-hash)
 	for _, how := range []string{"named", "linked", "both"} {
 		t.Run(how, func(t *testing.T) {
-			inZone(t, 0)
 			home := setupAgents(t)
 			dir := filepath.Join(home, ".workbuddy")
 			switch how {
