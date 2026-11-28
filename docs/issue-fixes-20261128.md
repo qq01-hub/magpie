@@ -4,7 +4,7 @@
 
 账号为 [qq01-hub](https://github.com/qq01-hub)，整合分支为 [fix/unanswered-issues-20261128](https://github.com/qq01-hub/magpie/tree/fix/unanswered-issues-20261128)
 
-以下是已经完成并审核的 15 项，本轮其余问题仍在独立工作树处理
+以下是已经完成并审核的 16 项，本轮其余问题仍在独立工作树处理
 
 | Issue | 修复与边界 | 独立分支 | 审核 HEAD |
 | --- | --- | --- | --- |
@@ -23,6 +23,7 @@
 | [#7816](https://github.com/yetone/magpie/issues/7816) | 移除插件账号后将其专有模型移出已选列表，保留手动模型，旧编辑窗口保存不会加回，账号恢复后重新列出 | [fix/7816-plugin-delisted-picks](https://github.com/qq01-hub/magpie/tree/fix/7816-plugin-delisted-picks) | `07c609ae5da16b0892e48aa5b3485bad9e78a4b8` |
 | [#7938](https://github.com/yetone/magpie/issues/7938) | AGY 本地摘要请求超限时精简历史图片和大工具输出，UTF-8 字符保持完整，普通请求及原生压缩保持原样，仍超限返回 413 | [fix/7938-oversized-agy-compaction](https://github.com/qq01-hub/magpie/tree/fix/7938-oversized-agy-compaction) | `59c12f9cca2ea0ee2432587e6dca1005079a6093` |
 | [#7988](https://github.com/yetone/magpie/issues/7988) | 技能 frontmatter 解析失败时丢弃不完整字段，显示文件夹名及本地化警告，区分来源显示名和安全安装名 | [fix/7988-skill-frontmatter-parse](https://github.com/qq01-hub/magpie/tree/fix/7988-skill-frontmatter-parse) | `5af7e9a49d11ed3bb6511a5aa07f77f4fb42a259` |
+| [#7799](https://github.com/yetone/magpie/issues/7799) | 交互模式粘贴前清理 bidi 控制标记，保留原文、ZWJ emoji 和零宽空格，命令前缀保护在清理后仍生效 | [fix/7799-interactive-bidi-paste](https://github.com/qq01-hub/magpie/tree/fix/7799-interactive-bidi-paste) | `38728eb8e52c9a9b6c01054560449f7ba6aaf756` |
 
 ## 实际失败复现与验证
 
@@ -45,6 +46,7 @@
 | #7816 | 撤回后台 relisted 回调后移除账号仍留下两项专有模型，撤回 Fetch models 的插件条件后 dropped 为空 | 两项实际 Bun 插件回归及 race 通过，另两项后台重列与恢复测试通过 race，整合代码同四项通过，未复测原作者的真实 CodeZ 账号 |
 | #7938 | 真实超过 512 MiB 的本地 HTTP 请求在旧 handler 返回 413、上游零字节；作者补丁的工具输出截断会切碎 UTF-8 字符 | 大请求压缩及继续对话、UTF-8 边界、普通或仍超限输入、原生压缩四项均通过，整合代码同四项通过，运行未传 `-short`，未使用真实 AGY 账号 |
 | #7988 | 旧生产代码的 Library 和 Agent 自有技能视图丢失 YAML 解析错误 | 两项 Go 回归通过，Chromium/WebKit 五语言共 12 项通过，覆盖来源安装、合法邻居、窄屏和 HTML 样式错误值，整合分支同组通过 |
+| #7799 | 旧代码的交互 shim 仍将全部 bidi 标记发给模拟 Claude，四种前缀保护失败 | 新 shim 测试、Pasteable 和原有交互发送三项通过，整合分支同组通过；额外完整 claudetui 包运行中止，未作为通过，未运行真实 Claude Code 2.1.332 |
 
 说明：#7777 提交正文中边界红测的 “on the base” 指作者补丁上的边界版本，原始主干复现与作者补丁补强是两个独立失败记录
 
