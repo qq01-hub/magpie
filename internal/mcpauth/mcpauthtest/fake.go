@@ -69,6 +69,14 @@ type Fake struct {
 	// <issuer>/.well-known/oauth-authorization-server instead of RFC 8414's
 	// path-inserted URL, while root /.well-known/ paths return an HTML page
 	PathAppendMetadata bool
+	// InvalidPathMetadata serves incomplete JSON at the first RFC 8414
+	// candidate, so discovery must keep trying the later candidates
+	InvalidPathMetadata bool
+	// SplitPathMetadata serves the authorization endpoint and token endpoint
+	// in different candidates, so discovery must not combine their fields
+	SplitPathMetadata bool
+	// MetadataPaths records metadata URLs in the order they were requested
+	MetadataPaths []string
 	// HoldGet, when set, is a server whose GET event stream sends its
 	// headers and then nothing until HoldGet closes, as one with no
 	// notification to send yet does (#7744)
@@ -111,6 +119,11 @@ func New(t *testing.T) *Fake {
 	t.Cleanup(f.Server.Close)
 	f.URL = f.Server.URL + "/mcp"
 	issuer := f.Server.URL + "/oauth"
+	markMetadata := func(r *http.Request) {
+		f.mu.Lock()
+		f.MetadataPaths = append(f.MetadataPaths, r.URL.Path)
+		f.mu.Unlock()
+	}
 	mux.HandleFunc("/.well-known/oauth-protected-resource/mcp", func(w http.ResponseWriter, r *http.Request) {
 		if f.NoMetadata {
 			http.NotFound(w, r)
@@ -138,6 +151,15 @@ func New(t *testing.T) *Fake {
 		json.NewEncoder(w).Encode(m)
 	}
 	mux.HandleFunc("/.well-known/oauth-authorization-server/oauth", func(w http.ResponseWriter, r *http.Request) {
+		markMetadata(r)
+		if f.SplitPathMetadata {
+			json.NewEncoder(w).Encode(map[string]string{"issuer": issuer, "authorization_endpoint": issuer + "/authorize"})
+			return
+		}
+		if f.InvalidPathMetadata {
+			json.NewEncoder(w).Encode(map[string]string{"issuer": issuer, "authorization_endpoint": issuer + "/authorize"})
+			return
+		}
 		if f.PathAppendMetadata {
 			w.Header().Set("Content-Type", "text/html; charset=utf-8")
 			io.WriteString(w, "<!doctype html><html><body>SPA</body></html>")
@@ -146,6 +168,20 @@ func New(t *testing.T) *Fake {
 		writeASMetadata(w)
 	})
 	mux.HandleFunc("/.well-known/openid-configuration/oauth", func(w http.ResponseWriter, r *http.Request) {
+		markMetadata(r)
+		if f.SplitPathMetadata {
+			json.NewEncoder(w).Encode(map[string]string{"issuer": issuer, "token_endpoint": issuer + "/token"})
+			return
+		}
+		if f.PathAppendMetadata {
+			w.Header().Set("Content-Type", "text/html; charset=utf-8")
+			io.WriteString(w, "<!doctype html><html><body>SPA</body></html>")
+			return
+		}
+		http.NotFound(w, r)
+	})
+	mux.HandleFunc("/oauth/.well-known/openid-configuration", func(w http.ResponseWriter, r *http.Request) {
+		markMetadata(r)
 		if f.PathAppendMetadata {
 			w.Header().Set("Content-Type", "text/html; charset=utf-8")
 			io.WriteString(w, "<!doctype html><html><body>SPA</body></html>")
@@ -154,6 +190,7 @@ func New(t *testing.T) *Fake {
 		http.NotFound(w, r)
 	})
 	mux.HandleFunc("/oauth/.well-known/oauth-authorization-server", func(w http.ResponseWriter, r *http.Request) {
+		markMetadata(r)
 		if !f.PathAppendMetadata {
 			http.NotFound(w, r)
 			return

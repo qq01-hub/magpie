@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -385,11 +386,33 @@ func TestSignInPathAppendedASMetadata(t *testing.T) {
 	home(t)
 	f := mcpauthtest.New(t)
 	f.PathAppendMetadata = true
+	f.InvalidPathMetadata = true
 	f.SignIn(t, "path-append")
 	if f.Exchanged != 1 {
 		t.Fatalf("exchanged %d", f.Exchanged)
 	}
 	if r, ok := mcpauth.Get("path-append"); !ok || r.Access == "" || r.TokenURL != f.Server.URL+"/oauth/token" {
+		t.Fatalf("record = %+v", r)
+	}
+	want := []string{
+		"/.well-known/oauth-authorization-server/oauth",
+		"/.well-known/openid-configuration/oauth",
+		"/oauth/.well-known/openid-configuration",
+		"/oauth/.well-known/oauth-authorization-server",
+	}
+	if !slices.Equal(f.MetadataPaths, want) {
+		t.Fatalf("metadata paths = %v, want %v", f.MetadataPaths, want)
+	}
+}
+
+// Metadata from separate candidates must not be combined into one response
+func TestSignInPathAppendedASMetadataDoesNotCombineCandidates(t *testing.T) {
+	home(t)
+	f := mcpauthtest.New(t)
+	f.PathAppendMetadata = true
+	f.SplitPathMetadata = true
+	f.SignIn(t, "path-append-split")
+	if r, ok := mcpauth.Get("path-append-split"); !ok || r.Access == "" || r.TokenURL != f.Server.URL+"/oauth/token" {
 		t.Fatalf("record = %+v", r)
 	}
 }
