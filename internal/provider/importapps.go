@@ -433,9 +433,18 @@ func validImportHost(u *url.URL) bool {
 	if strings.HasPrefix(u.Host, "[") && net.ParseIP(host) == nil {
 		return false
 	}
+	if strings.HasPrefix(u.Host, "[") {
+		if end := strings.IndexByte(u.Host, ']'); end >= 0 && len(u.Host) > end+1 {
+			if u.Host[end+1:] == ":" {
+				return false
+			}
+		}
+	} else if strings.Contains(host, ":") {
+		return false
+	}
 	if port := u.Port(); port != "" {
 		n, err := strconv.Atoi(port)
-		if err != nil || n < 0 || n > 65535 {
+		if err != nil || n < 1 || n > 65535 {
 			return false
 		}
 	} else if strings.Contains(u.Host, ":") && !strings.HasPrefix(u.Host, "[") {

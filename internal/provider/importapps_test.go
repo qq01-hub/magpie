@@ -499,6 +499,36 @@ func TestImportCCSwitchConfigWithBOM(t *testing.T) {
 	}
 }
 
+func TestImportCCSwitchConfigSingleLabelLANHost(t *testing.T) {
+	isolate(t)
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, ".config"))
+	t.Setenv("XDG_CACHE_HOME", filepath.Join(home, ".cache"))
+	path := filepath.Join(home, ".cc-switch", "config.json")
+	cfg := `{"codex":{"providers":{"relay":{"name":"Office Relay","settingsConfig":{"auth":{"OPENAI_API_KEY":"sk-office"},"config":"model_provider = \"relay\"\nmodel = \"gpt-5.5\"\n\n[model_providers.relay]\nname = \"relay\"\nbase_url = \"http://codex-relay:8080/v1\"\nwire_api = \"responses\"\n"}}}}}`
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte(cfg), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	items := itemsOf(t, "cc-switch")
+	it, ok := items["codex/relay"]
+	if !ok || it.Skip != "" || it.Provider.Responses != "http://codex-relay:8080/v1" || it.Provider.Key != "sk-office" {
+		t.Fatalf("CC Switch config import: %+v, exists %v", it, ok)
+	}
+	added, err := ImportFromApps([]AppPick{{Source: "cc-switch", Ref: "codex/relay"}})
+	if err != nil || len(added) != 1 {
+		t.Fatalf("import: %v %v", added, err)
+	}
+	p, err := Find("office-relay")
+	if err != nil || p.Responses != "http://codex-relay:8080/v1" || p.Key != "sk-office" {
+		t.Fatalf("saved provider: %+v, %v", p, err)
+	}
+}
+
 // A provider's Gemini URL (#1346) names its host like its other endpoints
 // do: the same key at that host is the provider already here, not another
 // one to add beside it.
