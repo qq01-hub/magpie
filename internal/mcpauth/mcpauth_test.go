@@ -377,6 +377,23 @@ func TestFirewallTurnedAway(t *testing.T) {
 	}
 }
 
+// An authorization server whose issuer carries a path and serves metadata
+// by appending /.well-known/oauth-authorization-server (while root
+// /.well-known/ paths return an SPA HTML page) is still discovered as a
+// fallback after RFC 8414's path-inserted URLs
+func TestSignInPathAppendedASMetadata(t *testing.T) {
+	home(t)
+	f := mcpauthtest.New(t)
+	f.PathAppendMetadata = true
+	f.SignIn(t, "path-append")
+	if f.Exchanged != 1 {
+		t.Fatalf("exchanged %d", f.Exchanged)
+	}
+	if r, ok := mcpauth.Get("path-append"); !ok || r.Access == "" || r.TokenURL != f.Server.URL+"/oauth/token" {
+		t.Fatalf("record = %+v", r)
+	}
+}
+
 // A sign-in can be finished by pasting the address the browser was sent
 // back to, for a magpie the browser can't reach (magpie on a server, in
 // Docker, the page open on another machine): the loopback callback never
