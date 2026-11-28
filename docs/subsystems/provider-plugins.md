@@ -446,6 +446,13 @@ An `auth.methods` API method may declare magpie-only `keyless: true` when
 its `authorize` function supplies the credential. The host carries this
 boolean only for API methods with an authorize function. GUI and CLI skip
 personal-key entry for it; ordinary API methods still require a key.
+An API method with an authorize function and a secret prompt is marked
+`keyAsked`: the prompt supplies the key, so GUI and CLI ask no second one.
+Text and choice prompts alone leave the separate key field in place,
+even with an authorize function, which may return metadata without a key
+(PackyAPI 0.2.1, #6064). The host keeps that separately entered key with
+the authorize result (`TestAPINonsecretPromptsKeepTheKeyField`); secret
+answers are still omitted from metadata (`TestAPIPromptsKeyAskedAndMetadata`).
 `auth.single: true` declares one provider identity: signing in again reuses
 its account slot and the account action says Sign in again. Existing records
 are not deleted. Other plugins keep multiple accounts. OpenCode ignores

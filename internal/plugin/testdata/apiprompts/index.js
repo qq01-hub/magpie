@@ -25,6 +25,22 @@ export const ApiPromptsPlugin = async () => ({
       },
       // 2: an authorize and no questions: the key is magpie's to ask
       { type: "api", label: "Checked key", authorize: async () => ({ type: "success", metadata: { checked: "yes" } }) },
+      // #6064: PackyAPI 0.2.1 asks only nonsecret account and endpoint choices
+      {
+        type: "api",
+        label: "System token",
+        prompts: [
+          { type: "text", key: "userID", message: "User ID" },
+          { type: "select", key: "endpoint", message: "Endpoint", options: [{ label: "SLB", value: "slb" }] },
+        ],
+        authorize: async (inputs) => ({ type: "success", metadata: { mode: "token", userID: inputs.userID, endpoint: inputs.endpoint || "slb", email: `packyapi-${inputs.userID}` } }),
+      },
+      {
+        type: "api",
+        label: "API keys",
+        prompts: [{ type: "select", key: "endpoint", message: "Endpoint", options: [{ label: "SLB", value: "slb" }] }],
+        authorize: async (inputs) => ({ type: "success", metadata: { mode: "keys", endpoint: inputs.endpoint || "slb" } }),
+      },
     ],
   },
 })

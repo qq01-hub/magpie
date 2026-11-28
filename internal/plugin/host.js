@@ -2579,12 +2579,12 @@ function methods(auth) {
 }
 
 // keyAsked is whether an "api" method's own questions ask its key: it has
-// prompts and an authorize that turns their answers into the key, as
+// a secret prompt and an authorize that turns its answer into the key, as
 // inkstone's and Devin's session-token method do. magpie asks no key of
 // its own beside them; one typed there went nowhere (authorize gets the
 // answers only), so the user gave the same token twice.
 function keyAsked(m) {
-  return m.type === "api" && Array.isArray(m.prompts) && m.prompts.length > 0 && typeof m.authorize === "function"
+  return m.type === "api" && Array.isArray(m.prompts) && m.prompts.some((p) => p?.type === "password") && typeof m.authorize === "function"
 }
 
 // iconOf is the picture a plugin gives its provider, magpie's own field
