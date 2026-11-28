@@ -6,6 +6,8 @@
 
 以下是本轮完成并审核的 20 项，均保留独立分支，发布回复前逐条确认 issue 仍开放且没有评论
 
+20 条回复均已发布并读回核对，远端独立分支的 HEAD 与下表一致，回复链接和提交记录见 [机器可读交付记录](issue-fixes-20261128-results.json)
+
 | Issue | 修复与边界 | 独立分支 | 审核 HEAD |
 | --- | --- | --- | --- |
 | [#7949](https://github.com/yetone/magpie/issues/7949) | Gemini 非流式回复遵守 includeThoughts，保留 usage 和纯思考回复的候选结果，流式行为保持原有 loop guard 约束 | [fix/7949-gemini-include-thoughts](https://github.com/qq01-hub/magpie/tree/fix/7949-gemini-include-thoughts) | `60c760256ffef6df50b88b54fac0f48a5a922c66` |
@@ -79,7 +81,37 @@ go test -tags nogui -run '^Test(GeminiThoughtsOnlyWhenIncluded|GeminiThoughtsOnl
 
 最终 20 项整合生产 HEAD 为 `0bcaab29df1454f0162197441de96207824ec5f9`，七个相关包统一回归共 148 个测试及子案例通过，其中顶层测试 86 个，0 失败，2 个既有 Unix 命令 fixture 在 Windows 跳过，分别为 `TestClaudeManagedCLIVersion` 和 `TestAgyCLIVersionWithoutUpdater`，对应的跨平台新增行为测试通过
 
-本轮完整 `go test -tags nogui -count=1 -timeout 10m -json ./...` 已启动，另设整体 25 分钟截止，当前结果仍在收集，不能解释为整仓测试全部通过
+该最终生产版本的 Windows `go vet ./...`、Linux `go vet -tags nogui ./...`、Windows 桌面构建与 Linux nogui 构建全部通过，66 个改动 Go 文件的 gofmt 检查和完整 diff 的空白检查通过
+
+本轮完整 `go test -tags nogui -count=1 -timeout 10m -json ./...` 于 15:35:16 开始，16:00:18 达到整体 25 分钟截止后停止，最终记录 6357 个测试及子案例通过、22 条失败事件、513 条跳过；顶层分别为 4320 通过、21 失败、258 跳过，整仓测试没有全部通过，也没有全部跑完
+
+134 个包中，100 个产生结束记录：70 个通过、13 个失败、17 个无测试或跳过，截止时 4 个包尚在运行，另 30 个未启动；agent、cli、davsync、gateway、gui、library 六包分别达到单包 10 分钟超时，provider 在一个已复现的旧测试中 panic
+
+以下 21 个顶层失败、22 条失败事件都已在固定原始基线 `0d310af00f2934b4331609251340e7336a1f9d0c` 上用相同环境逐项复现，事件数包含一个父测试和其失败子测试，具体映射见交付 JSON
+
+| 基线同样失败的测试 | 实际错误 |
+| --- | --- |
+| `TestFreedHeapLeavesFootprint` | Windows PATH 中没有测试脚本要求的 sh |
+| `TestFoldersJoinedOnce` | Config、Cache、JoinFile 各有 3 次分配 |
+| `TestLauncherNamesTheProfilesLink` | Nix profile fixture 返回 store 路径 |
+| `TestImageFromLeavesTheRest` | Windows 绝对路径被再次拼接工作目录 |
+| `TestLivePathNamedOnce` | LivePath 有 4 次分配 |
+| `TestAppliedOfParsesAnUnchangedFileOnce` | 未改变文件读取有 6 次分配 |
+| `TestWorkBuddyRestartOnMac` | macOS 应用 fixture 未生成预期 Restart |
+| `TestWorkBuddyOwnSaveAfterStartIsNoChange` 及其 darwin 子案例 | macOS 分支没有预期 Restart，windows 子案例通过 |
+| `TestAsideOfflineDisconnectRestoresWithoutDaemon` | native fixture 未报告 CLI 缺失 |
+| `TestShimFirstMessageWaitsForTools` | 30 秒内收到 0 行，预期 3 行 |
+| `TestGatewayHeldByAContainer` | Windows 测试进程占用 magpie.exe，TempDir 清理返回 Access is denied，基线还报告新端口启动失败 |
+| `TestClaudeAsRootEnv` | Unix root 环境 fixture 未添加 IS_SANDBOX=1 |
+| `TestRemoteMagpieRouterIsAServer` | Router 工具列表为空，未出现 fake 工具 |
+| `TestPiPackage` | 插件宿主在 Windows PATH 中找不到 sh 后退出 |
+| `TestAgySessions`、`TestAgyRowOnly`、`TestAntigravityAppFolder` | 工作目录规范化为 Windows 分隔符或恢复命令，与 Unix fixture 预期不同 |
+| `TestPluginSOCKSProxy` | 失效代理返回状态 0 及 Windows connectex 错误 |
+| `TestCCListingKeepsItsNames` | 3000 个未改变文件的分配数超过断言，整合为 21139，基线为 21155 |
+| `TestSQLiteSurvivesMalformedEnv` | Windows 拒绝带无等号环境项的子进程启动参数 |
+| `TestRestartSwitchedCodexAppReal` | helper 输出为空，随后测试访问空切片 panic |
+
+包级超时表示整包在本次时限内没有跑完，不能据此认定某个当时正在运行的测试存在独立缺陷，也不把这些超时一概标记为已完成基线复现
 
 额外完整 provider 包测试遇到 `TestRestartSwitchedCodexAppReal` 失败：helper 无输出后测试访问空切片，该失败在本轮未改动的固定生产基线上也已实际复现，相关 Claude 定向测试通过
 

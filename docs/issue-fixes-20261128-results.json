@@ -1,0 +1,930 @@
+{
+  "repository": "yetone/magpie",
+  "account": "qq01-hub",
+  "base": "0d310af00f2934b4331609251340e7336a1f9d0c",
+  "integration_branch": "fix/unanswered-issues-20261128",
+  "tested_production_head": "0bcaab29df1454f0162197441de96207824ec5f9",
+  "fixes": [
+    {
+      "issue": 7949,
+      "summary": "Gemini 非流式回复按 includeThoughts 隐藏思考内容，同时保留 usage 与候选结果",
+      "branch": "fix/7949-gemini-include-thoughts",
+      "head": "60c760256ffef6df50b88b54fac0f48a5a922c66",
+      "reply": "https://github.com/yetone/magpie/issues/7949#issuecomment-7234148746",
+      "reply_verified": true
+    },
+    {
+      "issue": 7956,
+      "summary": "支持音频的插件模型正确接收 Gemini 和 Chat 输入音频",
+      "branch": "fix/7956-audio-author",
+      "head": "f84126c75375e005cc9357855771e3ce28641198",
+      "reply": "https://github.com/yetone/magpie/issues/7956#issuecomment-7234149901",
+      "reply_verified": true
+    },
+    {
+      "issue": 7777,
+      "summary": "DeepSeek Hooks 配置经 YAML 重排后仍正确识别归属并保留用户编辑",
+      "branch": "fix/7777-dsh-hook-ownership",
+      "head": "08c50d19e45ca9746f4211bb7f017c3d77b51462",
+      "reply": "https://github.com/yetone/magpie/issues/7777#issuecomment-7234150886",
+      "reply_verified": true
+    },
+    {
+      "issue": 7965,
+      "summary": "OpenCode Go 模型及其路由组恢复 Codex Ultra 档位",
+      "branch": "fix/7965-opencode-seals-ultra",
+      "head": "148a4735bb760c1dd44bc4b501f23a54147dfea4",
+      "reply": "https://github.com/yetone/magpie/issues/7965#issuecomment-7234151828",
+      "reply_verified": true
+    },
+    {
+      "issue": 7633,
+      "summary": "Claude 钥匙串不可读或数据损坏时保留账号状态，避免误标需要重新登录",
+      "branch": "fix/7633-claude-unread-keychain",
+      "head": "6017b1eda78fa6b9e0bb4633541e0f5e6b2eed7d",
+      "reply": "https://github.com/yetone/magpie/issues/7633#issuecomment-7234152940",
+      "reply_verified": true
+    },
+    {
+      "issue": 7584,
+      "summary": "显示托管 Claude Code 与 agy CLI 版本，优先使用普通安装",
+      "branch": "fix/7584-managed-agent-versions",
+      "head": "d3a1f3efbb6f2563ead6bd26e2d3897d64d5be94",
+      "reply": "https://github.com/yetone/magpie/issues/7584#issuecomment-7234154083",
+      "reply_verified": true
+    },
+    {
+      "issue": 7960,
+      "summary": "同账号 Copilot Gemini 4 切换模型档位时保留 opaque，并兼容旧缓存",
+      "branch": "fix/7960-copilot-gemini-opaque-family",
+      "head": "8684801341a4aba8e0f0c3962db3ac715e19f347",
+      "reply": "https://github.com/yetone/magpie/issues/7960#issuecomment-7234155045",
+      "reply_verified": true
+    },
+    {
+      "issue": 7939,
+      "summary": "Responses WebSocket 大正文复用已有缓冲，避免整份请求再次复制",
+      "branch": "fix/7939-responses-websocket-body",
+      "head": "8e158cc05fcb56f4be73c0b401bb69e7c6888392",
+      "reply": "https://github.com/yetone/magpie/issues/7939#issuecomment-7234155934",
+      "reply_verified": true
+    },
+    {
+      "issue": 8019,
+      "summary": "站点脚本支持带空格、# 与符号链接的入口路径",
+      "branch": "fix/8019-site-entry-paths",
+      "head": "2120148bedb0d7cfdffaee9e424465a260ea094b",
+      "reply": "https://github.com/yetone/magpie/issues/8019#issuecomment-7234173824",
+      "reply_verified": true
+    },
+    {
+      "issue": 7992,
+      "summary": "技能路由描述按实际字符预算调整，避免摘要提前截断或全部消失",
+      "branch": "fix/7992-skill-description-budget",
+      "head": "feed84b98918cea133aa03684c63cd6e29a3bf51",
+      "reply": "https://github.com/yetone/magpie/issues/7992#issuecomment-7234222527",
+      "reply_verified": true
+    },
+    {
+      "issue": 7870,
+      "summary": "上游图片大小限制触发组内回退且不冷却原成员",
+      "branch": "fix/7870-image-size-group-failover",
+      "head": "99930ace8900c72e56a8c699296b28e036692d97",
+      "reply": "https://github.com/yetone/magpie/issues/7870#issuecomment-7234590024",
+      "reply_verified": true
+    },
+    {
+      "issue": 7969,
+      "summary": "从插件自身列表发现朗读转写模型并支持第二账号和模型别名",
+      "branch": "fix/7969-plugin-speech-discovery",
+      "head": "cc7d131bd5c0b547f1987e0ce1cb0dcd5a138717",
+      "reply": "https://github.com/yetone/magpie/issues/7969#issuecomment-7234626191",
+      "reply_verified": true
+    },
+    {
+      "issue": 7816,
+      "summary": "移除插件账号后清理其专有模型，旧编辑窗口不会加回，账号恢复后重新列出",
+      "branch": "fix/7816-plugin-delisted-picks",
+      "head": "07c609ae5da16b0892e48aa5b3485bad9e78a4b8",
+      "reply": "https://github.com/yetone/magpie/issues/7816#issuecomment-7234886358",
+      "reply_verified": true
+    },
+    {
+      "issue": 7938,
+      "summary": "AGY 超大图片历史可进入本地压缩，缩短工具输出时保留完整 UTF-8 字符",
+      "branch": "fix/7938-oversized-agy-compaction",
+      "head": "59c12f9cca2ea0ee2432587e6dca1005079a6093",
+      "reply": "https://github.com/yetone/magpie/issues/7938#issuecomment-7234959341",
+      "reply_verified": true
+    },
+    {
+      "issue": 7988,
+      "summary": "技能 frontmatter 解析失败时显示文件夹名及警告，丢弃不完整元数据",
+      "branch": "fix/7988-skill-frontmatter-parse",
+      "head": "5af7e9a49d11ed3bb6511a5aa07f77f4fb42a259",
+      "reply": "https://github.com/yetone/magpie/issues/7988#issuecomment-7235047494",
+      "reply_verified": true
+    },
+    {
+      "issue": 7799,
+      "summary": "交互模式粘贴前移除双向文字控制标记，避免 Claude 等待二次确认",
+      "branch": "fix/7799-interactive-bidi-paste",
+      "head": "38728eb8e52c9a9b6c01054560449f7ba6aaf756",
+      "reply": "https://github.com/yetone/magpie/issues/7799#issuecomment-7235149044",
+      "reply_verified": true
+    },
+    {
+      "issue": 7888,
+      "summary": "同源余额刷新错开请求，429 后按 Retry-After 或退避等待并保留上次余额",
+      "branch": "fix/7888-balance-refresh-429",
+      "head": "eff2ed3148b16970a28ffd8de6f664c4cd68df1e",
+      "reply": "https://github.com/yetone/magpie/issues/7888#issuecomment-7235236481",
+      "reply_verified": true
+    },
+    {
+      "issue": 7894,
+      "summary": "插件签到按账号各自限时 10 分钟，保留取消和调用方更短超时",
+      "branch": "fix/7894-plugin-checkin-budget",
+      "head": "03afc7e401b74565fc7e252b3e30db775e44b699",
+      "reply": "https://github.com/yetone/magpie/issues/7894#issuecomment-7235700723",
+      "reply_verified": true
+    },
+    {
+      "issue": 7574,
+      "summary": "Windows 下识别 Volta 管理的 Codex、Claude Code 和 omp 并使用正确更新命令",
+      "branch": "fix/7574-windows-volta-updates",
+      "head": "c1f8056bd1e26e01b07e51f79b08f918b264e227",
+      "reply": "https://github.com/yetone/magpie/issues/7574#issuecomment-7235732237",
+      "reply_verified": true
+    },
+    {
+      "issue": 7959,
+      "summary": "Copilot Gemini 4 思考摘要完整转发，小输出预算预留思考空间并正确处理关闭思考",
+      "branch": "fix/7959-copilot-gemini-reasoning",
+      "head": "a164e25315a163b30e6656eee812f66645dadefc",
+      "reply": "https://github.com/yetone/magpie/issues/7959#issuecomment-7236087811",
+      "reply_verified": true
+    }
+  ],
+  "verification": {
+    "integration_regressions": {
+      "packages_passed": 7,
+      "top_level_passed": 86,
+      "tests_and_subtests_passed": 148,
+      "failed": 0,
+      "skipped": 2
+    },
+    "windows_vet": "passed",
+    "linux_vet": "passed",
+    "windows_build": "passed",
+    "linux_build": "passed",
+    "gofmt_changed_files": 66,
+    "full_suite": {
+      "command": "go test -tags nogui -count=1 -timeout 10m -json ./...",
+      "head": "0bcaab29df1454f0162197441de96207824ec5f9",
+      "state": "stopped_at_global_limit",
+      "started": "2026-11-28T15:35:16.7151296+08:00",
+      "ended": "2026-11-28T16:00:18.9875469+08:00",
+      "exit_code": 1,
+      "maximum_minutes": 25,
+      "counts": {
+        "pass": 6357,
+        "top_pass": 4320,
+        "fail": 22,
+        "top_fail": 21,
+        "skip": 513,
+        "top_skip": 258
+      },
+      "packages": [
+        {
+          "package": "github.com/yetone/magpie/build/assetpack",
+          "action": "skip",
+          "elapsed": 0.007
+        },
+        {
+          "package": "github.com/yetone/magpie/build/conpty",
+          "action": "skip",
+          "elapsed": 0.009
+        },
+        {
+          "package": "github.com/yetone/magpie/build/darwin",
+          "action": "fail",
+          "elapsed": 4.582
+        },
+        {
+          "package": "github.com/yetone/magpie",
+          "action": "pass",
+          "elapsed": 15.559
+        },
+        {
+          "package": "github.com/yetone/magpie/internal/agentenv",
+          "action": "pass",
+          "elapsed": 8.087
+        },
+        {
+          "package": "github.com/yetone/magpie/internal/agentplug",
+          "action": "pass",
+          "elapsed": 4.389
+        },
+        {
+          "package": "github.com/yetone/magpie/internal/access",
+          "action": "pass",
+          "elapsed": 26.954
+        },
+        {
+          "package": "github.com/yetone/magpie/internal/applog",
+          "action": "pass",
+          "elapsed": 5.288
+        },
+        {
+          "package": "github.com/yetone/magpie/internal/appdir",
+          "action": "fail",
+          "elapsed": 18.407
+        },
+        {
+          "package": "github.com/yetone/magpie/internal/autostart",
+          "action": "pass",
+          "elapsed": 2.159
+        },
+        {
+          "package": "github.com/yetone/magpie/internal/artifact",
+          "action": "pass",
+          "elapsed": 14.457
+        },
+        {
+          "package": "github.com/yetone/magpie/internal/awake",
+          "action": "pass",
+          "elapsed": 1.63
+        },
+        {
+          "package": "github.com/yetone/magpie/internal/bark",
+          "action": "pass",
+          "elapsed": 2.803
+        },
+        {
+          "package": "github.com/yetone/magpie/internal/beat",
+          "action": "pass",
+          "elapsed": 1.2530000000000001
+        },
+        {
+          "package": "github.com/yetone/magpie/internal/bridgesid",
+          "action": "pass",
+          "elapsed": 1.6179999999999999
+        },
+        {
+          "package": "github.com/yetone/magpie/internal/browserext",
+          "action": "pass",
+          "elapsed": 3.467
+        },
+        {
+          "package": "github.com/yetone/magpie/internal/browsermcp",
+          "action": "fail",
+          "elapsed": 3.064
+        },
+        {
+          "package": "github.com/yetone/magpie/internal/budget",
+          "action": "pass",
+          "elapsed": 10.523
+        },
+        {
+          "package": "github.com/yetone/magpie/internal/capre",
+          "action": "pass",
+          "elapsed": 1.441
+        },
+        {
+          "package": "github.com/yetone/magpie/internal/ccswitchlink",
+          "action": "pass",
+          "elapsed": 2.785
+        },
+        {
+          "package": "github.com/yetone/magpie/internal/claudebridge",
+          "action": "pass",
+          "elapsed": 2.015
+        },
+        {
+          "package": "github.com/yetone/magpie/internal/catalog",
+          "action": "fail",
+          "elapsed": 7.343
+        },
+        {
+          "package": "github.com/yetone/magpie/internal/claudelock",
+          "action": "skip",
+          "elapsed": 0.001
+        },
+        {
+          "package": "github.com/yetone/magpie/internal/claudeseal",
+          "action": "skip",
+          "elapsed": 0.001
+        },
+        {
+          "package": "github.com/yetone/magpie/internal/claudecode",
+          "action": "pass",
+          "elapsed": 2.056
+        },
+        {
+          "package": "github.com/yetone/magpie/internal/claudetui",
+          "action": "fail",
+          "elapsed": 229.34
+        },
+        {
+          "package": "github.com/yetone/magpie/internal/coderun",
+          "action": "skip",
+          "elapsed": 0
+        },
+        {
+          "package": "github.com/yetone/magpie/internal/codexcat",
+          "action": "pass",
+          "elapsed": 2.151
+        },
+        {
+          "package": "github.com/yetone/magpie/internal/codexrelay",
+          "action": "pass",
+          "elapsed": 2.82
+        },
+        {
+          "package": "github.com/yetone/magpie/internal/codexsummary",
+          "action": "pass",
+          "elapsed": 1.234
+        },
+        {
+          "package": "github.com/yetone/magpie/internal/conptypair",
+          "action": "pass",
+          "elapsed": 1.211
+        },
+        {
+          "package": "github.com/yetone/magpie/internal/daemon",
+          "action": "pass",
+          "elapsed": 1.48
+        },
+        {
+          "package": "github.com/yetone/magpie/internal/backup",
+          "action": "pass",
+          "elapsed": 488.308
+        },
+        {
+          "package": "github.com/yetone/magpie/internal/dayzone",
+          "action": "pass",
+          "elapsed": 0.957
+        },
+        {
+          "package": "github.com/yetone/magpie/internal/desktopdir",
+          "action": "pass",
+          "elapsed": 0.995
+        },
+        {
+          "package": "github.com/yetone/magpie/internal/desktopiso",
+          "action": "pass",
+          "elapsed": 1.012
+        },
+        {
+          "package": "github.com/yetone/magpie/internal/dirent",
+          "action": "pass",
+          "elapsed": 4.694
+        },
+        {
+          "package": "github.com/yetone/magpie/internal/edit",
+          "action": "pass",
+          "elapsed": 12.133
+        },
+        {
+          "package": "github.com/yetone/magpie/internal/egress",
+          "action": "pass",
+          "elapsed": 1.528
+        },
+        {
+          "package": "github.com/yetone/magpie/internal/fasttools",
+          "action": "pass",
+          "elapsed": 6.116
+        },
+        {
+          "package": "github.com/yetone/magpie/internal/filelock",
+          "action": "pass",
+          "elapsed": 1.701
+        },
+        {
+          "package": "github.com/yetone/magpie/internal/filememo",
+          "action": "pass",
+          "elapsed": 6.8629999999999995
+        },
+        {
+          "package": "github.com/yetone/magpie/internal/fonts",
+          "action": "pass",
+          "elapsed": 0.899
+        },
+        {
+          "package": "github.com/yetone/magpie/internal/fx",
+          "action": "pass",
+          "elapsed": 1.385
+        },
+        {
+          "package": "github.com/yetone/magpie/internal/agent",
+          "action": "fail",
+          "elapsed": 602.332
+        },
+        {
+          "package": "github.com/yetone/magpie/internal/ghtoken",
+          "action": "pass",
+          "elapsed": 1.188
+        },
+        {
+          "package": "github.com/yetone/magpie/internal/groupshare",
+          "action": "pass",
+          "elapsed": 5.249
+        },
+        {
+          "package": "github.com/yetone/magpie/internal/cli",
+          "action": "fail",
+          "elapsed": 602.269
+        },
+        {
+          "package": "github.com/yetone/magpie/internal/gui/genpurposes",
+          "action": "skip",
+          "elapsed": 0.001
+        },
+        {
+          "package": "github.com/yetone/magpie/internal/gui/windowshape",
+          "action": "skip",
+          "elapsed": 0.001
+        },
+        {
+          "package": "github.com/yetone/magpie/internal/gwbudget",
+          "action": "skip",
+          "elapsed": 0.001
+        },
+        {
+          "package": "github.com/yetone/magpie/internal/gwmw",
+          "action": "pass",
+          "elapsed": 1.861
+        },
+        {
+          "package": "github.com/yetone/magpie/internal/gwtool",
+          "action": "skip",
+          "elapsed": 0.001
+        },
+        {
+          "package": "github.com/yetone/magpie/internal/h264",
+          "action": "pass",
+          "elapsed": 1.692
+        },
+        {
+          "package": "github.com/yetone/magpie/internal/handoff",
+          "action": "pass",
+          "elapsed": 2.419
+        },
+        {
+          "package": "github.com/yetone/magpie/internal/iconproxy",
+          "action": "pass",
+          "elapsed": 1.419
+        },
+        {
+          "package": "github.com/yetone/magpie/internal/imagemcp",
+          "action": "pass",
+          "elapsed": 15.471
+        },
+        {
+          "package": "github.com/yetone/magpie/internal/jsmod",
+          "action": "skip",
+          "elapsed": 0.001
+        },
+        {
+          "package": "github.com/yetone/magpie/internal/lastgood",
+          "action": "pass",
+          "elapsed": 2.194
+        },
+        {
+          "package": "github.com/yetone/magpie/internal/lazyre",
+          "action": "pass",
+          "elapsed": 1.409
+        },
+        {
+          "package": "github.com/yetone/magpie/internal/libc",
+          "action": "pass",
+          "elapsed": 1.33
+        },
+        {
+          "package": "github.com/yetone/magpie/internal/davsync",
+          "action": "fail",
+          "elapsed": 601.887
+        },
+        {
+          "package": "github.com/yetone/magpie/internal/masking",
+          "action": "pass",
+          "elapsed": 7.392
+        },
+        {
+          "package": "github.com/yetone/magpie/internal/maskrec",
+          "action": "pass",
+          "elapsed": 2.253
+        },
+        {
+          "package": "github.com/yetone/magpie/internal/mcpauth",
+          "action": "pass",
+          "elapsed": 2.717
+        },
+        {
+          "package": "github.com/yetone/magpie/internal/mcpauth/mcpauthtest",
+          "action": "skip",
+          "elapsed": 0.001
+        },
+        {
+          "package": "github.com/yetone/magpie/internal/memdistill",
+          "action": "pass",
+          "elapsed": 5.4030000000000005
+        },
+        {
+          "package": "github.com/yetone/magpie/internal/memembed",
+          "action": "pass",
+          "elapsed": 2.095
+        },
+        {
+          "package": "github.com/yetone/magpie/internal/memory",
+          "action": "pass",
+          "elapsed": 9.952
+        },
+        {
+          "package": "github.com/yetone/magpie/internal/middleware",
+          "action": "pass",
+          "elapsed": 3.615
+        },
+        {
+          "package": "github.com/yetone/magpie/internal/mtls",
+          "action": "pass",
+          "elapsed": 2.003
+        },
+        {
+          "package": "github.com/yetone/magpie/internal/netguard",
+          "action": "pass",
+          "elapsed": 1.495
+        },
+        {
+          "package": "github.com/yetone/magpie/internal/netproxy",
+          "action": "pass",
+          "elapsed": 14.808
+        },
+        {
+          "package": "github.com/yetone/magpie/internal/netproxy/sshtest",
+          "action": "skip",
+          "elapsed": 0
+        },
+        {
+          "package": "github.com/yetone/magpie/internal/notices",
+          "action": "skip",
+          "elapsed": 0
+        },
+        {
+          "package": "github.com/yetone/magpie/internal/oidc",
+          "action": "pass",
+          "elapsed": 3.191
+        },
+        {
+          "package": "github.com/yetone/magpie/internal/oidc/oidctest",
+          "action": "skip",
+          "elapsed": 0.001
+        },
+        {
+          "package": "github.com/yetone/magpie/internal/omarchy",
+          "action": "pass",
+          "elapsed": 1.815
+        },
+        {
+          "package": "github.com/yetone/magpie/internal/otlp",
+          "action": "pass",
+          "elapsed": 16.758
+        },
+        {
+          "package": "github.com/yetone/magpie/internal/pii",
+          "action": "pass",
+          "elapsed": 25.226
+        },
+        {
+          "package": "github.com/yetone/magpie/internal/pii/guard",
+          "action": "pass",
+          "elapsed": 6.87
+        },
+        {
+          "package": "github.com/yetone/magpie/internal/pii/guard/coreml",
+          "action": "pass",
+          "elapsed": 1.311
+        },
+        {
+          "package": "github.com/yetone/magpie/internal/pii/guard/levelzero",
+          "action": "skip",
+          "elapsed": 0.002
+        },
+        {
+          "package": "github.com/yetone/magpie/internal/gateway",
+          "action": "fail",
+          "elapsed": 600.188
+        },
+        {
+          "package": "github.com/yetone/magpie/internal/pluginrt",
+          "action": "pass",
+          "elapsed": 2.392
+        },
+        {
+          "package": "github.com/yetone/magpie/internal/probelog",
+          "action": "pass",
+          "elapsed": 1.517
+        },
+        {
+          "package": "github.com/yetone/magpie/internal/gui",
+          "action": "fail",
+          "elapsed": 600.173
+        },
+        {
+          "package": "github.com/yetone/magpie/internal/proc",
+          "action": "pass",
+          "elapsed": 72.284
+        },
+        {
+          "package": "github.com/yetone/magpie/internal/library",
+          "action": "fail",
+          "elapsed": 600.345
+        },
+        {
+          "package": "github.com/yetone/magpie/internal/qoder",
+          "action": "skip",
+          "elapsed": 0.001
+        },
+        {
+          "package": "github.com/yetone/magpie/internal/redact",
+          "action": "pass",
+          "elapsed": 6.962
+        },
+        {
+          "package": "github.com/yetone/magpie/internal/rosetta",
+          "action": "skip",
+          "elapsed": 0.001
+        },
+        {
+          "package": "github.com/yetone/magpie/internal/routes",
+          "action": "pass",
+          "elapsed": 4.796
+        },
+        {
+          "package": "github.com/yetone/magpie/internal/provider",
+          "action": "fail",
+          "elapsed": 152.719
+        },
+        {
+          "package": "github.com/yetone/magpie/internal/profile",
+          "action": "pass",
+          "elapsed": 189.892
+        },
+        {
+          "package": "github.com/yetone/magpie/internal/settingsapi",
+          "action": "pass",
+          "elapsed": 3.041
+        },
+        {
+          "package": "github.com/yetone/magpie/internal/shortcut",
+          "action": "pass",
+          "elapsed": 3.063
+        },
+        {
+          "package": "github.com/yetone/magpie/internal/sigv4",
+          "action": "pass",
+          "elapsed": 2.664
+        },
+        {
+          "package": "github.com/yetone/magpie/internal/source",
+          "action": "pass",
+          "elapsed": 7.871
+        },
+        {
+          "package": "github.com/yetone/magpie/internal/sqlitedb",
+          "action": "fail",
+          "elapsed": 3.116
+        }
+      ],
+      "started_packages": 104,
+      "unfinished_packages": [
+        "github.com/yetone/magpie/internal/plugin",
+        "github.com/yetone/magpie/internal/sessions",
+        "github.com/yetone/magpie/internal/settings",
+        "github.com/yetone/magpie/internal/stall"
+      ],
+      "unfinished_tests": [
+        {
+          "package": "github.com/yetone/magpie/internal/agent",
+          "test": "TestClaudeOwnTierOnTheNewMainModelStays"
+        },
+        {
+          "package": "github.com/yetone/magpie/internal/agent",
+          "test": "TestClaudeOwnTierOnTheNewMainModelStays/anth/claude-opus-5-5/opus//model"
+        },
+        {
+          "package": "github.com/yetone/magpie/internal/cli",
+          "test": "TestEveryAgentFieldNameWritesNothing"
+        },
+        {
+          "package": "github.com/yetone/magpie/internal/davsync",
+          "test": "TestGatewayKeysConflict"
+        },
+        {
+          "package": "github.com/yetone/magpie/internal/davsync",
+          "test": "TestGatewayKeysConflict/without_keys/remote_newer"
+        },
+        {
+          "package": "github.com/yetone/magpie/internal/gateway",
+          "test": "TestCodexCommitMessageOnMagpieProvider"
+        },
+        {
+          "package": "github.com/yetone/magpie/internal/gui",
+          "test": "TestProviderSaveKeepsIconFrom"
+        },
+        {
+          "package": "github.com/yetone/magpie/internal/library",
+          "test": "TestRemoteMagpieRouterLeavesOutTheLibrarysOwn"
+        },
+        {
+          "package": "github.com/yetone/magpie/internal/plugin",
+          "test": "TestRenewalWaitSpendsTheListBudget"
+        },
+        {
+          "package": "github.com/yetone/magpie/internal/sessions",
+          "test": "TestCodexArchivedRollouts"
+        },
+        {
+          "package": "github.com/yetone/magpie/internal/sessions",
+          "test": "TestCodexArchivedRollouts/plain"
+        },
+        {
+          "package": "github.com/yetone/magpie/internal/settings",
+          "test": "TestSaveConcurrent"
+        }
+      ],
+      "diagnostics": [
+        {
+          "package": "github.com/yetone/magpie/internal/agent",
+          "test": "TestClaudeOwnTierOnTheNewMainModelStays/anth/claude-opus-5-5/opus//model",
+          "output": "panic: test timed out after 10m0s"
+        },
+        {
+          "package": "github.com/yetone/magpie/internal/cli",
+          "test": "TestEveryAgentFieldNameWritesNothing",
+          "output": "panic: test timed out after 10m0s"
+        },
+        {
+          "package": "github.com/yetone/magpie/internal/davsync",
+          "test": "TestGatewayKeysConflict/without_keys/remote_newer",
+          "output": "panic: test timed out after 10m0s"
+        },
+        {
+          "package": "github.com/yetone/magpie/internal/gateway",
+          "test": "TestCodexCommitMessageOnMagpieProvider",
+          "output": "panic: test timed out after 10m0s"
+        },
+        {
+          "package": "github.com/yetone/magpie/internal/gui",
+          "test": "TestProviderSaveKeepsIconFrom",
+          "output": "panic: test timed out after 10m0s"
+        },
+        {
+          "package": "github.com/yetone/magpie/internal/library",
+          "test": "TestRemoteMagpieRouterLeavesOutTheLibrarysOwn",
+          "output": "panic: test timed out after 10m0s"
+        },
+        {
+          "package": "github.com/yetone/magpie/internal/provider",
+          "test": "TestRestartSwitchedCodexAppReal",
+          "output": "panic: runtime error: index out of range [0] with length 0 [recovered, repanicked]"
+        }
+      ],
+      "failures": [
+        {
+          "package": "github.com/yetone/magpie/build/darwin",
+          "test": "TestFreedHeapLeavesFootprint",
+          "same_failure_reproduced_on_fixed_base": true,
+          "baseline_evidence": "footprint-overlay.sh: exec: \"sh\": executable file not found in %PATH%"
+        },
+        {
+          "package": "github.com/yetone/magpie/internal/appdir",
+          "test": "TestFoldersJoinedOnce",
+          "same_failure_reproduced_on_fixed_base": true,
+          "baseline_evidence": "Config/Cache/JoinFile unchanged each report 3 allocations"
+        },
+        {
+          "package": "github.com/yetone/magpie/internal/appdir",
+          "test": "TestLauncherNamesTheProfilesLink",
+          "same_failure_reproduced_on_fixed_base": true,
+          "baseline_evidence": "profile wrapper resolves store\\\\abc-magpie-0.1.4674\\\\bin\\\\magpie, want home\\\\.nix-profile\\\\bin\\\\magpie"
+        },
+        {
+          "package": "github.com/yetone/magpie/internal/browsermcp",
+          "test": "TestImageFromLeavesTheRest",
+          "same_failure_reproduced_on_fixed_base": true,
+          "baseline_evidence": "image path became \\\\work\\\\proj\\\\work\\\\proj\\\\abs.png"
+        },
+        {
+          "package": "github.com/yetone/magpie/internal/catalog",
+          "test": "TestLivePathNamedOnce",
+          "same_failure_reproduced_on_fixed_base": true,
+          "baseline_evidence": "LivePath with folders unchanged: 4 allocations"
+        },
+        {
+          "package": "github.com/yetone/magpie/internal/agent",
+          "test": "TestAppliedOfParsesAnUnchangedFileOnce",
+          "same_failure_reproduced_on_fixed_base": true,
+          "baseline_evidence": "6 allocations for an unchanged file"
+        },
+        {
+          "package": "github.com/yetone/magpie/internal/agent",
+          "test": "TestWorkBuddyRestartOnMac",
+          "same_failure_reproduced_on_fixed_base": true,
+          "baseline_evidence": "no Restart for WorkBuddy started an hour before magpie wrote its models"
+        },
+        {
+          "package": "github.com/yetone/magpie/internal/agent",
+          "test": "TestWorkBuddyOwnSaveAfterStartIsNoChange/darwin",
+          "same_failure_reproduced_on_fixed_base": true,
+          "baseline_evidence": "no Restart for WorkBuddy started half an hour before magpie wrote its models"
+        },
+        {
+          "package": "github.com/yetone/magpie/internal/agent",
+          "test": "TestWorkBuddyOwnSaveAfterStartIsNoChange",
+          "same_failure_reproduced_on_fixed_base": true,
+          "baseline_evidence": "aggregate failed; darwin subtest failed, windows subtest passed"
+        },
+        {
+          "package": "github.com/yetone/magpie/internal/agent",
+          "test": "TestAsideOfflineDisconnectRestoresWithoutDaemon",
+          "same_failure_reproduced_on_fixed_base": true,
+          "baseline_evidence": "native fixture must report missing CLI"
+        },
+        {
+          "package": "github.com/yetone/magpie/internal/claudetui",
+          "test": "TestShimFirstMessageWaitsForTools",
+          "same_failure_reproduced_on_fixed_base": true,
+          "baseline_evidence": "shim wrote 0 lines of 3 in 30s"
+        },
+        {
+          "package": "github.com/yetone/magpie/internal/gui",
+          "test": "TestGatewayHeldByAContainer",
+          "same_failure_reproduced_on_fixed_base": true,
+          "baseline_evidence": "gateway didn't start on the new port; TempDir RemoveAll cleanup: magpie.exe Access is denied"
+        },
+        {
+          "package": "github.com/yetone/magpie/internal/gateway",
+          "test": "TestClaudeAsRootEnv",
+          "same_failure_reproduced_on_fixed_base": true,
+          "baseline_evidence": "root environment omitted IS_SANDBOX=1 for PATH=/bin HOME=/root and IS_SANDBOX=true PATH=/bin"
+        },
+        {
+          "package": "github.com/yetone/magpie/internal/library",
+          "test": "TestRemoteMagpieRouterIsAServer",
+          "same_failure_reproduced_on_fixed_base": true,
+          "baseline_evidence": "Router tools list is empty instead of the fake tool"
+        },
+        {
+          "package": "github.com/yetone/magpie/internal/plugin",
+          "test": "TestPiPackage",
+          "same_failure_reproduced_on_fixed_base": true,
+          "baseline_evidence": "Bun plugin host cannot find sh on Windows PATH and exits"
+        },
+        {
+          "package": "github.com/yetone/magpie/internal/sessions",
+          "test": "TestAgySessions",
+          "same_failure_reproduced_on_fixed_base": true,
+          "baseline_evidence": "Working directory normalized to Windows backslashes"
+        },
+        {
+          "package": "github.com/yetone/magpie/internal/sessions",
+          "test": "TestAgyRowOnly",
+          "same_failure_reproduced_on_fixed_base": true,
+          "baseline_evidence": "Working directory and resume command use Windows form"
+        },
+        {
+          "package": "github.com/yetone/magpie/internal/sessions",
+          "test": "TestAntigravityAppFolder",
+          "same_failure_reproduced_on_fixed_base": true,
+          "baseline_evidence": "Folder is backslash work site/api, expected Unix slash path"
+        },
+        {
+          "package": "github.com/yetone/magpie/internal/provider",
+          "test": "TestRestartSwitchedCodexAppReal",
+          "same_failure_reproduced_on_fixed_base": true,
+          "baseline_evidence": "Empty helper output followed by slice index panic"
+        },
+        {
+          "package": "github.com/yetone/magpie/internal/plugin",
+          "test": "TestPluginSOCKSProxy",
+          "same_failure_reproduced_on_fixed_base": true,
+          "baseline_evidence": "Down SOCKS proxy produces status zero and Windows connectex refusal"
+        },
+        {
+          "package": "github.com/yetone/magpie/internal/sessions",
+          "test": "TestCCListingKeepsItsNames",
+          "same_failure_reproduced_on_fixed_base": true,
+          "baseline_evidence": "3000 unchanged files exceed allocation assertion, base 21155 versus batch 21139"
+        },
+        {
+          "package": "github.com/yetone/magpie/internal/sqlitedb",
+          "test": "TestSQLiteSurvivesMalformedEnv",
+          "same_failure_reproduced_on_fixed_base": true,
+          "baseline_evidence": "Windows rejects child environment with an entry without equals"
+        }
+      ]
+    }
+  }
+}
