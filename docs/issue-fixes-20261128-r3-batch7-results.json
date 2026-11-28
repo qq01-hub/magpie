@@ -1,0 +1,68 @@
+{
+  "production_head": "b6076ac4b",
+  "log": "r3-batch7-final-regressions.jsonl",
+  "tests_and_subtests": 127,
+  "top_level_tests": 65,
+  "passed": 127,
+  "failed": 0,
+  "skipped": 0,
+  "packages": {
+    "github.com/yetone/magpie/internal/catalog": {
+      "result": "pass",
+      "seconds": 0.35
+    },
+    "github.com/yetone/magpie/internal/provider": {
+      "result": "pass",
+      "seconds": 0.856
+    },
+    "github.com/yetone/magpie/internal/agent": {
+      "result": "pass",
+      "seconds": 4.33
+    },
+    "github.com/yetone/magpie/internal/sessions": {
+      "result": "pass",
+      "seconds": 7.37
+    },
+    "github.com/yetone/magpie/internal/gui": {
+      "result": "pass",
+      "seconds": 20.341
+    },
+    "github.com/yetone/magpie/internal/gateway": {
+      "result": "pass",
+      "seconds": 20.378
+    }
+  },
+  "non_json_lines": 0,
+  "failures": [],
+  "limits": "Selected local regression tests only; no full repository suite or live vendor/client validation",
+  "final_production_head": "2928a1cacfae91d5f6829d8a278b65d1acd1424a",
+  "final_head_scope": "The final follow-up changes routing JavaScript, browser fixtures and documentation only; Go sources equal the passing regression head",
+  "browser_checks": [
+    {
+      "log": "r3-7221-browser-placement-green.log",
+      "passed": 44,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "log": "r3-batch7-browser.log",
+      "passed": 4,
+      "failed": 0,
+      "skipped": 0
+    },
+    {
+      "log": "r3-6377-ui-green.log",
+      "passed": 32,
+      "failed": 0,
+      "skipped": 0
+    }
+  ],
+  "static_and_build": [
+    "Windows vet ./... passed",
+    "Linux vet -tags nogui ./... passed",
+    "Windows GUI-enabled build passed",
+    "Linux nogui build passed",
+    "107 changed Go files formatted",
+    "git diff --check clean"
+  ]
+}

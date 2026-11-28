@@ -38,6 +38,11 @@ Issue state is checked again immediately before a comment is posted
 | [#6710](https://github.com/yetone/magpie/issues/6710) | Git skills bind and regroup from verified source records or checkout origins without merging case-sensitive refs and paths | [fix/6710-git-skill-grouping](https://github.com/qq01-hub/magpie/tree/fix/6710-git-skill-grouping) | `a54aed801e7b38c55d06f3f5608c24f1d5502230` |
 | [#3604](https://github.com/yetone/magpie/issues/3604) | Explicit LobeHub requests display their client name and color icon without adding a configurable agent | [fix/3604-lobehub-client](https://github.com/qq01-hub/magpie/tree/fix/3604-lobehub-client) | `2604c2d62db54a0aa0a46218b3f01d01e0da641e` |
 | [#7134](https://github.com/yetone/magpie/issues/7134) | Kettu requests display their own name and PNG icon while retaining the original script budgets | [fix/7134-kettu-client](https://github.com/qq01-hub/magpie/tree/fix/7134-kettu-client) | `5ac4ae5e76909fdb8e6bb5fdba8d9aa6057daea0` |
+| [#7430](https://github.com/yetone/magpie/issues/7430) | Synthetic model lists retain live reasoning and output limits, distinguish Infinite and carry known output into both OpenCode formats | [fix/7430-synthetic-live-models](https://github.com/qq01-hub/magpie/tree/fix/7430-synthetic-live-models) | `c12f672a94aa646b0d68ccd6be6c39d5385c5a60` |
+| [#6576](https://github.com/yetone/magpie/issues/6576) | Desktop advisor aliases and tier picks resolve with the original caller, preserving key limits and subscription preference | [fix/6576-desktop-advisor-alias](https://github.com/qq01-hub/magpie/tree/fix/6576-desktop-advisor-alias) | `1d8000afe69a00a64147d77f0c916c6ca499d990` |
+| [#6377](https://github.com/yetone/magpie/issues/6377) | Plugin MCP icons survive full Library reads and partial refreshes while explicit icons retain precedence | [fix/6377-library-plugin-icons](https://github.com/qq01-hub/magpie/tree/fix/6377-library-plugin-icons) | `dd038edada1ad91f0565a394b2f4315c527cac09` |
+| [#6565](https://github.com/yetone/magpie/issues/6565) | Buddy usage reads only newly completed lines, retaining reply replacement, disk continuation and old-cache rebuilding | [fix/6565-workbuddy-incremental-calls](https://github.com/qq01-hub/magpie/tree/fix/6565-workbuddy-incremental-calls) | `45b6cfb32b783ee84ff2edd38966b7fda1a38eb5` |
+| [#7221](https://github.com/yetone/magpie/issues/7221) | Completely shared subgroups keep their metadata and chosen paths, and their models display under the correct headings | [fix/7221-nested-group-trace](https://github.com/qq01-hub/magpie/tree/fix/7221-nested-group-trace) | `cb43fe135b1b3f9562c9ca4e2b29fc5c48947aad` |
 
 ## Reproduction and checks
 
@@ -186,6 +191,39 @@ Machine-readable results: [fifth five-fix batch](issue-fixes-20261128-r3-batch5-
 - Upstream was checked at 1038298ffabb167600a2afe8ddb4a165a2794541; the only intervening change in these production files adds Orca to the configurable-agent list, separately from the request-client entries
 
 Machine-readable results: [sixth five-fix batch](issue-fixes-20261128-r3-batch6-results.json)
+
+## Seventh batch checks
+
+- #7430: the reporter's two Synthetic records reproduce identical names, missing Infinite reasoning and output, and stale regular-model effort and output metadata on the fixed base
+- #7430: only the official Synthetic host interprets its reasoning_parameters, supported_features and max_output_length fields; live effort lists now survive catalog decoration, with missing fields retaining fallback
+- #7430: review reproduced fractional and out-of-range output limits overwriting valid legacy data, plus known output being lost in OpenCode when context is unknown; positive integral limits are bounded by the architecture's int range and both OpenCode formats preserve the output
+- #7430: the actual Gateway Handler is checked for plain, OpenCode 1 and OpenCode 2 lists using the real registered OpenCode builder; context zero follows the checked OpenCode 1.19.6 default, rather than inventing an Infinite context window
+- #7430: 22 top-level tests and 40 tests/subtests passed in independent integration review, with zero failures or skips; the affected catalog, provider and agent checks also passed under race detection
+- #6576: MaJingyiFighting's port retains its author and reproduces Desktop aliases leaking upstream, cross-provider advisor loss and missing auto-group stand-ins on the old implementation
+- #6576: review adds exact caller-token/path precedence, unrelated-UA controls, subscription-bridge alias preservation and effort/context suffix handling, with real handler regressions for allowed and denied keys
+- #6576: another review regression demonstrates that resolving a missing auto group before the original caller is available selects the first relay instead of the caller's own subscription; parsing now retains the identifier until the caller-aware request stage
+- #6576: the accepted subscription-priority fixture first verifies the account, caller identity and direct stand-in selection; earlier experiments lacking the subscription's live catalog are not counted as valid red evidence
+- #6576: 15 top-level tests and 41 tests/subtests passed in independent integration review, with zero failures or skips; eight focused top-level tests passed with -race -count=3 in 27.040 seconds, including zero advisor calls for disallowed keys and one for allowed keys
+- #6377: KiraMio's patch retains its author and makes plugin-generated MCP servers inherit their installed icon only when there is no Library override; cached files use the existing validated icon endpoint
+- #6377: review reproduces icon loss after an MCP-only refresh and applies the same enrichment to that response; the actual HTTP endpoint is checked for PNG content and rejection of encoded path traversal and non-image extensions
+- #6377: four top-level tests and six tests/subtests passed in independent integration review; the selected GUI checks also passed under race detection, and 32 Chromium/WebKit tests cover five languages, real image loading, explicit overrides, unsafe-file fallback and partial refresh with no remote network access
+- #6377: both browser screenshots were saved and the final WebKit screenshot was inspected by the main reviewer
+- #6565: WorkBuddy, WorkBuddy AI and CodeBuddy now use the existing incremental line reader; the old code reparses the complete file after an append and counts a complete JSON object before its terminating newline, both reproduced before the fix
+- #6565: the last reply ID and model-config stamp survive disk continuation, repeated reply updates mark the old call for replacement, and cloned carry preserves earlier returned calls; truncation, rewriting, ownership changes on append and parser-version upgrades rebuild the shard
+- #6565: 18 top-level tests and 34 tests/subtests passed in independent integration review; the final selected new and adjacent tests also passed with race detection at one and four CPUs, including all three version-zero shard rebuilds
+- #6565: unnecessary global timezone changes in three existing all-history tests caused a race on the unchanged base; their removal is a separate test-isolation commit, with the original failure and repeated passing checks retained
+- #6565: a single measured append to the same real CodeBuddy fixture took 437.82 ms before and 2.01 ms after at 10 MiB, and 6410.53 ms before and 6.87 ms after at 100 MiB; this is a local one-iteration comparison, not a statistical throughput claim or proof of constant cost, since call copying and persistence still depend on history size
+- #7221: the reporter's four-group configuration reproduces a missing fully shared Review group and the wrong chosen-member path; nested rule fixtures also reproduce losing Review/Inner ancestors
+- #7221: group metadata retains primary and shared positions in source order, and a selected rule carries its full group path while execution candidates remain deduplicated; six real Handler and adjacent tests passed in independent integration review and under repeated race detection
+- #7221: browser fixtures use the serialized real Handler traces; visual review then reproduced a third Review model sitting under Task low, fixed by keeping display rows together by their existing paths without changing execution order
+- #7221: 44 Chromium/WebKit checks passed across five languages and wide/narrow viewports, including group ownership, unique model rows, fold behavior, multiple routes and the existing group-fold case; main review inspected the wide WebKit shared-group screenshot and narrow Chromium nested-group screenshot
+- Credits: zent00 for #7430's original response and diagnosis, MaJingyiFighting for #6576's patch, KiraMio for #6377's patch, yetone for #6565's diagnosis and Riablo for #7221's report and configuration
+- All five Go changes together at `b6076ac4b` passed 65 top-level tests and 127 tests/subtests across catalog, provider, agent, gateway, gui and sessions, with zero failures and zero skips
+- The final UI follow-up at `2928a1cac` changes no Go source; four combined-head Chromium/WebKit cases passed, followed by successful GUI-enabled Windows and nogui Linux builds
+- Windows go vet ./... and Linux go vet -tags nogui ./... passed; all 107 changed Go files are formatted and git diff --check is clean
+- The independent UI branch's generated asset archive matched its source tree and served successfully, and its original core-script budget remained unchanged
+
+Machine-readable results: [seventh five-fix batch](issue-fixes-20261128-r3-batch7-results.json)
 
 ## Environment and limits
 
