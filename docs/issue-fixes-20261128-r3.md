@@ -33,6 +33,11 @@ Issue state is checked again immediately before a comment is posted
 | [#5221](https://github.com/yetone/magpie/issues/5221) | Explicit InternLM content-check codes are classified as refusals without broad message matching | [fix/5221-internlm-safety-refusal](https://github.com/qq01-hub/magpie/tree/fix/5221-internlm-safety-refusal) | `29a39f55ebe78daa3fbdbd3950c7526bc8ef94b8` |
 | [#7563](https://github.com/yetone/magpie/issues/7563) | OMP project skills, MCP servers and plugin parts use their native project files | [fix/7563-omp-project-targets](https://github.com/qq01-hub/magpie/tree/fix/7563-omp-project-targets) | `b314126c7447fbdf7235832d2ce7fd77b4a32ac8` |
 | [#2835](https://github.com/yetone/magpie/issues/2835) | Complete current-platform editor SDK caches keep Claude and Codex detected, including beside Cindy | [fix/2835-agent-host-sdk](https://github.com/qq01-hub/magpie/tree/fix/2835-agent-host-sdk) | `1418ec294bf055b40dbac5855f7ad8d571078696` |
+| [#2609](https://github.com/yetone/magpie/issues/2609) | Windows update lookup follows a running executable moved away from its launch path, including long Unicode paths | [fix/2609-windows-moved-executable](https://github.com/qq01-hub/magpie/tree/fix/2609-windows-moved-executable) | `1b7ec71e3cdc059940c5b35415cf4cebc1821b39` |
+| [#6064](https://github.com/yetone/magpie/issues/6064) | Plugin sign-ins asking only nonsecret prompts retain the separate API key field | [fix/6064-plugin-nonsecret-prompts](https://github.com/qq01-hub/magpie/tree/fix/6064-plugin-nonsecret-prompts) | `0a3675b2982b00826a2174c701cabd98ba1ebde0` |
+| [#6710](https://github.com/yetone/magpie/issues/6710) | Git skills bind and regroup from verified source records or checkout origins without merging case-sensitive refs and paths | [fix/6710-git-skill-grouping](https://github.com/qq01-hub/magpie/tree/fix/6710-git-skill-grouping) | `a54aed801e7b38c55d06f3f5608c24f1d5502230` |
+| [#3604](https://github.com/yetone/magpie/issues/3604) | Explicit LobeHub requests display their client name and color icon without adding a configurable agent | [fix/3604-lobehub-client](https://github.com/qq01-hub/magpie/tree/fix/3604-lobehub-client) | `2604c2d62db54a0aa0a46218b3f01d01e0da641e` |
+| [#7134](https://github.com/yetone/magpie/issues/7134) | Kettu requests display their own name and PNG icon while retaining the original script budgets | [fix/7134-kettu-client](https://github.com/qq01-hub/magpie/tree/fix/7134-kettu-client) | `5ac4ae5e76909fdb8e6bb5fdba8d9aa6057daea0` |
 
 ## Reproduction and checks
 
@@ -157,6 +162,30 @@ Machine-readable results: [fourth five-fix batch](issue-fixes-20261128-r3-batch4
 - Windows go vet ./..., Linux go vet -tags nogui ./..., a GUI-enabled Windows build and a Linux nogui build passed; changed Go files are formatted and git diff --check is clean
 
 Machine-readable results: [fifth five-fix batch](issue-fixes-20261128-r3-batch5-results.json)
+
+## Sixth batch checks
+
+- #2609: a copied test helper waits for the parent to move its running executable, then calls the production Executable function; the old implementation returns the obsolete launch path for both short and over-MAX_PATH Unicode destinations
+- #2609: the port retains the original author and the supplement uses existing x/sys/windows bindings with a bounded UTF-16 buffer; the independent integration review passed six top-level tests and eight tests/subtests, including invalid handles, the unchanged-path fast path, Scoop junctions and unresolved symlink fallback
+- #2609: only temporary test executables were moved; no live Magpie binary, installer or elevated operation was run, and native Linux/macOS execution remains untested
+- #6064: both PackyAPI method shapes from egenchen/magpie-packycode at 2a2eeaa fail with gave no key on the old host; the real plugin host now retains the separate key input and saves the expected key and metadata
+- #6064: the two integration tests also cover one-time secret entry, secrets excluded from metadata, no-authorize/no-prompts methods and rejection when the key is absent; no real account or browser sign-in was used
+- #6710: the old code leaves an identical Git skill unbound and regroups zero skills; local Git repositories now exercise exact copies, older copies, recorded sources, typed locks and real checkout origins
+- #6710: review reproduced two additional mistakes in the initial implementation, merging Release/release or Kit/kit and accepting a stale full-URL From record; case-sensitive refs and Git paths remain separate, expired locks cannot claim unrelated skills, and the checkout's actual origin is retained
+- #6710: the final independent integration review passed 13 top-level tests and 20 tests/subtests in 175.597 seconds, including existing GitHub and well-known grouping; an earlier worker selection exceeded its three-minute timeout and is not counted as a passing run
+- #3604: the old registry has no named LobeHub metadata or embedded icon and does not normalize the mixed-case UA; the author port adds only a request client, with no configuration writer
+- #3604: the original SVG fails the existing icon-sharpness guard; the supplement removes two shadow filters while preserving paths and gradients, then verifies the actual embedded asset's HTTP status, MIME and color-icon metadata
+- #3604: five selected Go tests passed in independent integration review; headless Chromium and WebKit each passed English and Chinese routing-page checks for the name, icon URL and decoded image, and screenshots were inspected
+- #7134: the original registry leaves Kettu under its raw name with a generic icon; the port retains the contributor's captured UA and logo, and adds request-client-only checks plus the actual embedded PNG's HTTP status, MIME and 64-by-64 decoding
+- #7134: the first patch exceeds the existing core script budget by nine bytes; the supplement retains both original budgets and removes only separators' spaces in the unchanged PNG icon set
+- #7134: six focused Go tests pass; Chromium and WebKit pass in English and Chinese, and removing only the PNG registration reproduces the generic cube in Chromium before restoration passes
+- Credits for these changes: 3ZEROS12 for #2609, C0nstFoL for #6064's diagnosis and fixture source, yetone for #6710's diagnosis, Hardy for #3604 and Amigoer for #7134
+- Final integration at `1ebc87d614a5253bca64abbbb07e9066008dfccc`: 30 top-level tests and 39 tests/subtests across update, plugin, library, agent and gui passed, with zero failures and zero skips
+- The combined routing-client browser test passed all four Chromium/WebKit and English/Chinese cases with both new icons present, and the final WebKit screenshot was inspected
+- Windows go vet ./..., Linux go vet -tags nogui ./..., a GUI-enabled Windows build and a Linux nogui build passed; all 82 changed Go files are formatted and git diff --check is clean
+- Upstream was checked at 1038298ffabb167600a2afe8ddb4a165a2794541; the only intervening change in these production files adds Orca to the configurable-agent list, separately from the request-client entries
+
+Machine-readable results: [sixth five-fix batch](issue-fixes-20261128-r3-batch6-results.json)
 
 ## Environment and limits
 
