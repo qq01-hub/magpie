@@ -176,7 +176,7 @@ func claudeOnlyCindys(a *Agent, home string) bool {
 	if p, _ := claudecode.Downloaded(); p != "" {
 		return false
 	}
-	if extensionHere(home, "anthropic.claude-code") || appHere("Claude.app") || desktopdir.OS == "windows" && desktopInstalled(home) {
+	if agentHostSDK(home, "claude") || extensionHere(home, "anthropic.claude-code") || appHere("Claude.app") || desktopdir.OS == "windows" && desktopInstalled(home) {
 		return false
 	}
 	return !jetBrainsHere(home) && !zedAgentsHere(home)
@@ -207,7 +207,7 @@ func codexOnlyCindys(a *Agent, home string) bool {
 	if _, err := os.Stat(filepath.Join(home, ".codex", "packages", "standalone")); err == nil {
 		return false
 	}
-	if a.HasApp() || extensionHere(home, "openai.chatgpt") {
+	if a.HasApp() || agentHostSDK(home, "codex") || extensionHere(home, "openai.chatgpt") {
 		return false
 	}
 	return !jetBrainsHere(home) && !zedAgentsHere(home)
@@ -240,6 +240,23 @@ func agentHostSDK(home, id string) bool {
 // editor's user data folder that has any: the newest version first is not
 // needed, one whole copy is enough.
 func agentHostSdkDirs(home, id string) []string {
+	if id != "claude" && id != "codex" {
+		return nil
+	}
+	// AgentSdkDownloader uses Node's process.platform and process.arch,
+	// not Go's names, and a cache copied from another host is not runnable
+	platform := runtime.GOOS
+	if platform == "windows" {
+		platform = "win32"
+	}
+	arch := runtime.GOARCH
+	if arch == "amd64" {
+		arch = "x64"
+	}
+	if (platform != "win32" && platform != "darwin" && platform != "linux") || (arch != "x64" && arch != "arm64") {
+		return nil
+	}
+	target := platform + "-" + arch
 	var roots []string
 	switch runtime.GOOS {
 	case "darwin":
@@ -274,15 +291,7 @@ func agentHostSdkDirs(home, id string) []string {
 				if !v.IsDir() {
 					continue
 				}
-				ps, err := os.ReadDir(filepath.Join(base, v.Name()))
-				if err != nil {
-					continue
-				}
-				for _, p := range ps {
-					if p.IsDir() {
-						out = append(out, filepath.Join(base, v.Name(), p.Name()))
-					}
-				}
+				out = append(out, filepath.Join(base, v.Name(), target))
 			}
 		}
 	}
