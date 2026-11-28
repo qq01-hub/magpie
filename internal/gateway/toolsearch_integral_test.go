@@ -134,6 +134,7 @@ func TestTranslatedToolSearchLimitIsCodexInteger(t *testing.T) {
 func TestSearchCallArgsOnlyWholeZeros(t *testing.T) {
 	for in, want := range map[string]string{
 		`{"query":"a 8.0 b","limit":8.0}`: `{"query":"a 8.0 b","limit":8}`,
+		`{"query":"x","limit":"8.0"}`:     `{"query":"x","limit":"8.0"}`,
 		`{"query":"x","limit":2.5}`:       `{"query":"x","limit":2.5}`,
 		`{"query":"x","limit":8}`:         `{"query":"x","limit":8}`,
 		`{"query":"x"}`:                   `{"query":"x"}`,
