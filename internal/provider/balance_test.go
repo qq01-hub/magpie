@@ -257,16 +257,38 @@ func TestKeyBalances(t *testing.T) {
 }
 
 func TestReadAiHubMix(t *testing.T) {
-	if got, err := readAiHubMix([]byte(`{"object":"list","total_usage":12.5}`)); err != nil || got != "$12.50" {
-		t.Fatalf("got %q, %v", got, err)
+	for _, c := range []struct {
+		name string
+		body string
+		want string
+	}{
+		{"limited", `{"object":"list","total_usage":12.5}`, "$12.50"},
+		{"limited string", `{"object":"list","total_usage":"12.5"}`, "$12.50"},
+		{"zero balance", `{"object":"list","total_usage":0}`, "$0.00"},
+		{"zero string", `{"object":"list","total_usage":"0"}`, "$0.00"},
+		{"below unlimited sentinel", `{"object":"list","total_usage":99999999}`, "$99999999.00"},
+		{"below sentinel string", `{"object":"list","total_usage":"99999999"}`, "$99999999.00"},
+		{"above unlimited sentinel", `{"object":"list","total_usage":100000001}`, "$100000001.00"},
+		{"above sentinel string", `{"object":"list","total_usage":"100000001"}`, "$100000001.00"},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			if got, err := readAiHubMix([]byte(c.body)); err != nil || got != c.want {
+				t.Fatalf("got %q, %v; want %q", got, err, c.want)
+			}
+		})
 	}
 	for _, body := range []string{
 		`{"object":"list","total_usage":-0.000002}`,
+		`{"object":"list","total_usage":"-0.000002"}`,
 		`{"object":"list","total_usage":100000000}`,
+		`{"object":"list","total_usage":"100000000"}`,
 	} {
-		if got, err := readAiHubMix([]byte(body)); got != "" || err == nil || !strings.Contains(err.Error(), "this key has no limit") {
-			t.Errorf("unlimited key %s: got %q, %v", body, got, err)
-		}
+		t.Run(body, func(t *testing.T) {
+			got, err := readAiHubMix([]byte(body))
+			if got != "" || err == nil || !strings.Contains(err.Error(), "this key has no limit: add the account's management key") || !strings.Contains(err.Error(), "AiHubMix → Developer → Management Key") {
+				t.Fatalf("unlimited key: got %q, %v", got, err)
+			}
+		})
 	}
 }
 
