@@ -75,9 +75,9 @@ go test -tags nogui -run '^Test(GeminiThoughtsOnlyWhenIncluded|GeminiThoughtsOnl
 
 额外完整 provider 包测试遇到 `TestRestartSwitchedCodexAppReal` 失败：helper 无输出后测试访问空切片，该失败在本轮未改动的固定生产基线上也已实际复现，相关 Claude 定向测试通过
 
-#7988 额外界面邻接检查没有全部通过：原样 `skill-manual.test.cjs` 的空 POST 断言被 `/api/update/using` 心跳触发，固定基线同样失败；临时仅过滤测试心跳后 22 项通过，随后恢复原测试文件，没有把过滤算入提交结果
+#7988 额外界面邻接检查没有全部通过：原样 `skill-manual.test.cjs` 的空 POST 断言被 `/api/update/using` 心跳触发，固定基线同样失败，与 [#6668](https://github.com/yetone/magpie/issues/6668) 的记录一致；临时仅过滤测试心跳后 22 项通过，随后恢复原测试文件，没有把过滤算入提交结果
 
-`found-skill-pick-remove.test.cjs` 在修复树为 13 通过、9 失败（含父测试），失败涉及 reach/press 辅助流程；固定基线复现了两个引擎下日语、德语 420px 的四个子测试失败，另外三个 WebKit 子测试失败在该次基线运行没有复现，不能把它们一概认定为基线问题；新增 frontmatter 测试与实际改动路径仍为两引擎五语言全通过
+`found-skill-pick-remove.test.cjs` 在修复树为 13 通过、9 失败（含父测试），失败涉及 reach/press 辅助流程，[#5013](https://github.com/yetone/magpie/issues/5013) 的已有回复记录了相同的窄屏元素不可达及空边界框；本次固定基线复现了两个引擎下日语、德语 420px 的四个子测试失败，另外三个 WebKit 子测试失败在该次基线运行没有复现，不能把它们一概认定为本次基线已证实的问题；新增 frontmatter 测试与实际改动路径仍为两引擎五语言全通过
 
 本机未提供可运行的 Linux/macOS 环境，跨平台 vet/build 不代表对应系统的运行测试，未调用真实付费模型、真实 macOS 钥匙串或修改现有 agent 配置，供应商相关行为使用隔离的本地 HTTP 服务和 fixture 验证
 
