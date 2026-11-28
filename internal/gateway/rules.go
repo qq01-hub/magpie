@@ -697,7 +697,7 @@ func (s *Server) nestedRules(at string, req *Request, agent string, ask classifi
 		if h == nil || h.Use == "" {
 			continue
 		}
-		cands, pl = ruleOver(h, subMs, cands, pl, aff)
+		cands, pl = ruleOver(h, subMs, cands, pl, aff, lead.Groups()[:depth+1])
 		if led := ruleLed(h, subMs, cands); strings.HasPrefix(led, provider.GroupPrefix) {
 			// further down, the way the group it chose has its models
 			ms = homed(ms, append(slices.Clone(lead.Path[:depth+1]), led))
@@ -893,8 +893,8 @@ func ruleFirst(ms []provider.Member, cs []candidate, pl planned, own int, home m
 // going outside it. One kept outside it, which took over when it failed,
 // isn't held there: the turn goes back to the rule's member once one of it
 // is ready again, its rest over.
-func ruleOver(hit *RuleHit, ms []provider.Member, cs []candidate, pl planned, aff *Affinity) (out []candidate, _ planned) {
-	defer func() { homeCands(out, ruleMembers(hit, ms)) }()
+func ruleOver(hit *RuleHit, ms []provider.Member, cs []candidate, pl planned, aff *Affinity, via []string) (out []candidate, plan planned) {
+	defer func() { homeCands(out, ruleMembers(hit, ms), plan.order, via) }()
 	if hit.UseEffort != "" {
 		hit.members = ruleMembers(hit, ms)
 	}
@@ -993,11 +993,13 @@ func ruleEffort(c candidate, hit *RuleHit, nested []NestedRule, ms []provider.Me
 
 // homeCands sends the keys or accounts of the rule's members as the
 // member the rule names has them: fast, and its first token's wait, where
-// a group ahead of it has the same model too (#2361).
-func homeCands(cs []candidate, ms []provider.Member) {
+// a group ahead of it has the same model too (#2361), with the trace
+// following that place and the full parent path for a nested group's rule
+func homeCands(cs []candidate, ms []provider.Member, order []Weighed, via []string) {
 	for i := range cs {
 		if j := slices.IndexFunc(ms, func(m provider.Member) bool { return ofMember(cs[i], m) }); j >= 0 {
 			cs[i].fast, cs[i].ultra, cs[i].firstToken = ms[j].Fast, ms[j].Ultra, innerFirstToken(ms[j])
+			order[i].Via = append(slices.Clone(via), ms[j].Groups()...)
 		}
 	}
 }
