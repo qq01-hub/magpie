@@ -4,7 +4,7 @@
 
 账号为 [qq01-hub](https://github.com/qq01-hub)，整合分支为 [fix/unanswered-issues-20261128](https://github.com/qq01-hub/magpie/tree/fix/unanswered-issues-20261128)
 
-以下是已经完成并审核的 9 项，本轮其余问题仍在独立工作树处理
+以下是已经完成并审核的 10 项，本轮其余问题仍在独立工作树处理
 
 | Issue | 修复与边界 | 独立分支 | 审核 HEAD |
 | --- | --- | --- | --- |
@@ -17,6 +17,7 @@
 | [#7960](https://github.com/yetone/magpie/issues/7960) | 同账号 Gemini 4 argon/carbon/hydrogen/neon 共享 opaque，旧缓存按共享键、当前 tier 的两种拼写、其他 tier 的顺序读取，其他账号及模型保持隔离 | [fix/7960-copilot-gemini-opaque-family](https://github.com/qq01-hub/magpie/tree/fix/7960-copilot-gemini-opaque-family) | `8684801341a4aba8e0f0c3962db3ac715e19f347` |
 | [#7939](https://github.com/yetone/magpie/issues/7939) | WebSocket 转内部 POST 时复用大正文，保留小正文的独立缓冲和实际字节数限制，伪造较小 Content-Length 仍返回 413 | [fix/7939-responses-websocket-body](https://github.com/qq01-hub/magpie/tree/fix/7939-responses-websocket-body) | `8e158cc05fcb56f4be73c0b401bb69e7c6888392` |
 | [#8019](https://github.com/yetone/magpie/issues/8019) | 站点脚本通过规范化真实路径判断命令入口，路径含空格、`#` 或经符号链接调用时仍执行，作为模块导入时无命令副作用 | [fix/8019-site-entry-paths](https://github.com/qq01-hub/magpie/tree/fix/8019-site-entry-paths) | `2120148bedb0d7cfdffaee9e424465a260ea094b` |
+| [#7992](https://github.com/yetone/magpie/issues/7992) | 技能路由描述在原有 1024 UTF-16 单位预算内选取能容纳的最长共同前缀，保留短描述和完整技能名 | [fix/7992-skill-description-budget](https://github.com/qq01-hub/magpie/tree/fix/7992-skill-description-budget) | `feed84b98918cea133aa03684c63cd6e29a3bf51` |
 
 ## 实际失败复现与验证
 
@@ -33,6 +34,7 @@
 | #7960 | 切换 tier 丢失 opaque，旧缓存冲突时取到 sibling 而非当前 tier，前缀别名也有同类问题 | 10 个顶层相关测试和 5 个子测试通过，包含真实本地 HTTP 请求和协议翻译路径 |
 | #7939 | 33554444 字节的 socket 请求仍整份复制 | 三个 body ownership / limit 测试通过 race，另 42 个相关顶层 socket/request/unrouted 测试通过 |
 | #8019 | 三个索引命令在特殊路径和链接入口下缺少生成文件，链接 credits 命令意外返回成功 | Node 24.22.3 定向 27 项全部通过，完整 site 套件为 176 通过、33 失败，33 项均属于 Windows 上的 Unix installer fixture，原基线同名 33 项也失败 |
+| #7992 | 14 个技能仍被截到 40 字符档位且预算闲置，35 短描述加 8 长描述退化成只列名称 | 七项 RouterDesc 测试在独立分支及整合代码 `8a294c0cf` 上全部通过，覆盖 Unicode、80 rune 上限和名称溢出；更广的 Library 回归在 Windows 的既有 `TestSkillRouterUnnamedInView` 处达到四分钟套件超时，未计为通过 |
 
 说明：#7777 提交正文中边界红测的 “on the base” 指作者补丁上的边界版本，原始主干复现与作者补丁补强是两个独立失败记录
 
