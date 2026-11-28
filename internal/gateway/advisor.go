@@ -115,8 +115,8 @@ func advisorID(model string) string {
 // before checking whether the upstream or magpie can serve it
 // Claude Desktop can send its own tier id before restarting into its pick
 func advisorNamed(r *http.Request, raw string) string {
-	m, _ := askedAt(strings.TrimSpace(raw))
-	id := strings.TrimSuffix(strings.TrimSuffix(m, "[1m]"), "[2m]")
+	m, _ := askedAt(advisorID(raw))
+	id := m
 	if id == "" {
 		return ""
 	}
@@ -124,18 +124,21 @@ func advisorNamed(r *http.Request, raw string) string {
 	agent := ""
 	if r != nil {
 		agent = agentOf(r)
-		if agent != "claude-desktop" && strings.Contains(r.Header.Get("User-Agent"), "claude-desktop") {
+		ua := r.Header.Get("User-Agent")
+		if agent != "claude-desktop" && pathAgent(r) == "" && !strings.HasPrefix(callerKey(r), Token+"-") &&
+			strings.HasPrefix(ua, "claude-cli/") && strings.Contains(ua, "(external, claude-desktop)") {
 			agent = "claude-desktop"
 		}
 	}
 	if agent == "claude-desktop" && claudeOwnID(id) {
 		if pick := DesktopTiers()[claudeTier(id)]; pick != "" {
-			id = unprefixed(strings.TrimSuffix(pick, "[1m]"))
+			id = advisorID(pick)
 		}
 	}
 	if inner, e := askedAt(id); e != "" {
-		id = unprefixed(strings.TrimSuffix(inner, "[1m]"))
+		id = inner
 	}
+	id = unprefixed(id)
 	if sid, ok := provider.AutoStandInFor(agent, provider.CanonicalRef(id)); ok {
 		id = sid
 	}

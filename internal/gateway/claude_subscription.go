@@ -7558,7 +7558,7 @@ func (s *Server) serveSubscription(w http.ResponseWriter, r *http.Request, from 
 func bridgeRequest(r *http.Request, from provider.Protocol, name string, body []byte) (req *Request, err error) {
 	// Claude Code's advisor, run by magpie: the run's agent has no server
 	// tools (advisor_serve.go)
-	advised := name == "Claude Code" && advisedInBridge(from, body)
+	advised := name == "Claude Code" && advisedInBridge(r, from, body)
 	parse := parse
 	if advised {
 		parse = func(from provider.Protocol, body []byte) (*Request, error) {
@@ -7586,6 +7586,9 @@ func bridgeRequest(r *http.Request, from provider.Protocol, name string, body []
 		}
 	} else {
 		req, err = parse(from, body)
+	}
+	if err == nil && req.Advisor != "" {
+		req.Advisor = advisorNamed(r, req.Advisor)
 	}
 	return req, err
 }
