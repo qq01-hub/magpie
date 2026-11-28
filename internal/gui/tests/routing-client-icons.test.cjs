@@ -21,6 +21,7 @@ const clients = [
   { id: "kimi", name: "Kimi Code", icon: "kimi" },
   { id: "kimi-code-desktop", name: "Kimi Code Desktop", icon: "kimi-code-desktop" },
   { id: "workbuddy", name: "WorkBuddy", icon: "workbuddy-color" },
+  { id: "kettu", name: "Kettu", icon: "kettu" },
 ];
 const routes = clients.map((c, i) => ({
   id: 100 + i, seq: 100 + i, time: at(i), agent: c.id, model: "kimi-k3", provider: "kimi-code",
@@ -94,6 +95,9 @@ for (const engine of (process.env.BROWSER ? [process.env.BROWSER] : ["chromium",
       const desk = rows.find((x) => x.title.startsWith("Kimi Code Desktop · "));
       assert.equal(desk.src, "icons/kimi-code-desktop.png", JSON.stringify(desk));
       assert(desk.loaded, JSON.stringify(desk));
+      const kettu = rows.find((x) => x.title.startsWith("Kettu · "));
+      assert.equal(kettu.src, "icons/kettu.png", JSON.stringify(kettu));
+      assert(kettu.loaded, JSON.stringify(kettu));
       // no raw client id stands for a name
       assert(!rows.some((x) => /^kimi-code-(cli|desktop) · /.test(x.title)), JSON.stringify(rows));
       assert.deepEqual(errors, []);
