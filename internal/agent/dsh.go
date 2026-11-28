@@ -200,28 +200,29 @@ func dshOn(at place, dir, list string, fresh, lead func() string) *Agent {
 	modern := func() bool { return dshModern(dir, fresh) }
 	path := filepath.Join(dir, "config.yaml")
 	// a stopped distro's folder is never listed: that starts it (#3896)
-	var files []string
 	if !at.cold {
-		files = dshProfiles(dir)
+		if profile := dshLead(dir, lead()); profile != "" {
+			path = profile
+		}
 	}
-	if len(files) > 0 {
-		path = files[0]
-	} else if f := fresh(); f != "" {
-		path = f
+	if path == filepath.Join(dir, "config.yaml") {
+		if f := fresh(); f != "" {
+			path = f
+		}
 	}
 	joined := func() bool {
-		files := dshProfilesHeld(dir)
-		if len(files) == 0 {
+		profile := dshLead(dir, lead())
+		if profile == "" {
 			return false
 		}
-		_, items, err := dshLook(files[0]) // dshOver changes a copy
+		_, items, err := dshLook(profile) // dshOver changes a copy
 		return err == nil && dshWired(dshOver(dir, items))
 	}
 	a := &Agent{
 		Spelled: prefixed,
 		Dir:     dir, Path: path,
 		Sync:  func() error { return dshSyncFresh(at, dir, gw(), fresh) },
-		Check: func() string { return dshCheck(dir, gw()) },
+		Check: func() string { return dshCheck(dir, gw(), lead()) },
 		// a model of DeepSeek's own picked in dsh (saved in its settings)
 		// leaves magpie's route in its list: dsh is still connected, its
 		// /model has magpie's models beside DeepSeek's (Fate on Discord:
@@ -1034,12 +1035,11 @@ var dshModelLine = lazyre.New(`^\s+model:\s*(.+?)\s*$`)
 
 // dshLead is the profile whose start magpie shows: the one named lead
 // when there is one (the desktop app's when DeepSeek Harness Desktop is
-// installed, DS Bot's in its home), else the first, web's; "" before
-// profiles. dsh saves a model picked in it into the profile in
-// use alone (ConfigEditor.edit in dsh-config-editor), so the profiles can
-// start on different models, each the user's own. Read from web's alone,
-// the Agents page showed a model the desktop app's sessions don't start
-// on, and picking what it showed changed nothing there (#5222).
+// installed, DS Bot's in its home), else web's. With an implicit lead only,
+// an empty, successfully parsed web template may yield to another profile
+// that has a start model. A settings.yaml or home-layer start keeps web's
+// precedence because it applies over every profile. dsh saves a model picked in use alone
+// (ConfigEditor.edit in dsh-config-editor), so profiles can start differently.
 func dshLead(dir, lead string) string {
 	files := dshProfilesHeld(dir)
 	if len(files) == 0 {
@@ -1051,8 +1051,20 @@ func dshLead(dir, lead string) string {
 				return f
 			}
 		}
+		return files[0]
 	}
-	return files[0]
+	first := files[0]
+	_, items, err := dshLook(first)
+	if err != nil || len(items) > 0 || dshStart(dir, items) != "" {
+		return first
+	}
+	for _, f := range files[1:] {
+		_, items, err := dshLook(f)
+		if err == nil && dshStart(dir, items) != "" {
+			return f
+		}
+	}
+	return first
 }
 
 // dshGet reads the model new sessions start on: the one last picked in dsh,
@@ -1213,8 +1225,8 @@ func dshOverAll(dir string) []dshItem {
 // elsewhere, the model it starts on one the route doesn't list, or — since
 // 0.1.5 — the key it names gone from .env, or another key under that name in
 // dsh's own store, which it reads first.
-func dshCheck(dir, gw string) string {
-	if !usesMagpie(dshGet(dir, "")) {
+func dshCheck(dir, gw, lead string) string {
+	if !usesMagpie(dshGet(dir, lead)) {
 		return ""
 	}
 	files := dshProfiles(dir)
@@ -1232,8 +1244,9 @@ func dshCheck(dir, gw string) string {
 		get := func(string) (string, bool) { return base, base != "" }
 		return wiringOff("DeepSeek Harness", path, get, "baseURL", gw+"/v1")
 	}
-	_, items, _ := dshLook(files[0])
-	routeFile := files[0]
+	profile := dshLead(dir, lead)
+	_, items, _ := dshLook(profile)
+	routeFile := profile
 	if dshHomeHas(dir, dshPiRow) {
 		routeFile = dshHomePatch(dir)
 		// the home layer's llm-pi-ai goes over every profile's: without
@@ -1250,7 +1263,10 @@ func dshCheck(dir, gw string) string {
 	// its start with it, is said as before, and so is one still on the old
 	// wiring, which dshSync moves rather than this round writing beside.
 	canWriteBack := len(sharedModels(dshListFor(dir))) > 0
-	for _, f := range files[1:] {
+	for _, f := range files {
+		if f == profile {
+			continue
+		}
 		_, items, err := dshLook(f)
 		if err != nil || dshWired(dshOver(dir, items)) {
 			continue
