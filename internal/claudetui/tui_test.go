@@ -726,6 +726,31 @@ func TestShimTurnsInteractive(t *testing.T) {
 	}
 }
 
+// Bidi marks in the reported Hebrew and Arabic message are removed before
+// the interactive paste reaches Claude Code. ZWJ emoji and zero-width
+// spaces remain part of the user's text.
+func TestShimPastesBidiMarks(t *testing.T) {
+	marks := "\u061c\u200e\u200f\u202a\u202b\u202c\u202d\u202e\u2066\u2067\u2068\u2069"
+	fixture := "\u05e9\u05dc\u05d5\u05dd" + marks + " \u0645\u0631\u062d\u0628\u0627 👩\u200d💻 a\u200bb"
+	want := "echo: \u05e9\u05dc\u05d5\u05dd \u0645\u0631\u062d\u0628\u0627 👩\u200d💻 a\u200bb"
+	out := runShim(t, nil, append([]string{fakePath(t)}, pArgs...), []string{fixture}, 3)
+	if out[1]["type"] != "assistant" {
+		t.Fatalf("the turn ended %v, want an assistant reply", out)
+	}
+	message, ok := out[1]["message"].(map[string]any)
+	if !ok {
+		t.Fatalf("assistant message has type %T, want an object", out[1]["message"])
+	}
+	content, ok := message["content"].([]any)
+	if !ok || len(content) != 1 {
+		t.Fatalf("assistant content is %v, want one text block", message["content"])
+	}
+	block, ok := content[0].(map[string]any)
+	if !ok || block["text"] != want {
+		t.Fatalf("Claude Code received %v, want %q", content[0], want)
+	}
+}
+
 // A message's images are pasted as their files' paths, each alone and
 // after the prompt shows the one before: the words and images reach
 // Claude Code in their order. One it can't take as a file is an error.
@@ -1258,6 +1283,11 @@ func TestPasteable(t *testing.T) {
 		{"# note", true, userMark + "# note"},
 		{"a\r\nb\x1b[201~c", false, "a\nb[201~c"},
 		{"x / y", true, "x / y"},
+		{"\u200f/help", false, "\n/help"},
+		{"\u061c!run", false, "\n!run"},
+		{"\u202a# note\u202c", false, "\n# note"},
+		{"\u2067&task\u2069", false, "\n&task"},
+		{"a\u200bb 👩\u200d💻", false, "a\u200bb 👩\u200d💻"},
 	} {
 		if got := pasteable(c.in, c.busy); got != c.want {
 			t.Errorf("pasteable(%q, %v) = %q, want %q", c.in, c.busy, got, c.want)
