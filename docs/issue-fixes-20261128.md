@@ -4,7 +4,7 @@
 
 账号为 [qq01-hub](https://github.com/qq01-hub)，整合分支为 [fix/unanswered-issues-20261128](https://github.com/qq01-hub/magpie/tree/fix/unanswered-issues-20261128)
 
-以下是已经完成并审核的 11 项，本轮其余问题仍在独立工作树处理
+以下是已经完成并审核的 12 项，本轮其余问题仍在独立工作树处理
 
 | Issue | 修复与边界 | 独立分支 | 审核 HEAD |
 | --- | --- | --- | --- |
@@ -19,6 +19,7 @@
 | [#8019](https://github.com/yetone/magpie/issues/8019) | 站点脚本通过规范化真实路径判断命令入口，路径含空格、`#` 或经符号链接调用时仍执行，作为模块导入时无命令副作用 | [fix/8019-site-entry-paths](https://github.com/qq01-hub/magpie/tree/fix/8019-site-entry-paths) | `2120148bedb0d7cfdffaee9e424465a260ea094b` |
 | [#7992](https://github.com/yetone/magpie/issues/7992) | 技能路由描述在原有 1024 UTF-16 单位预算内选取能容纳的最长共同前缀，保留短描述和完整技能名 | [fix/7992-skill-description-budget](https://github.com/qq01-hub/magpie/tree/fix/7992-skill-description-budget) | `feed84b98918cea133aa03684c63cd6e29a3bf51` |
 | [#7870](https://github.com/yetone/magpie/issues/7870) | 上游明确的图片大小超限 400/413 可转到组内下一成员，原成员不冷却，普通请求错误、图片格式、数量及速率限制不误归类 | [fix/7870-image-size-group-failover](https://github.com/qq01-hub/magpie/tree/fix/7870-image-size-group-failover) | `99930ace8900c72e56a8c699296b28e036692d97` |
+| [#7969](https://github.com/yetone/magpie/issues/7969) | 从插件自身聚合列表发现朗读及转写模型，支持第二账号与本地模型别名，遵守禁用和供应商顺序，不把普通音频聊天模型当成语音接口 | [fix/7969-plugin-speech-discovery](https://github.com/qq01-hub/magpie/tree/fix/7969-plugin-speech-discovery) | `cc7d131bd5c0b547f1987e0ce1cb0dcd5a138717` |
 
 ## 实际失败复现与验证
 
@@ -37,6 +38,7 @@
 | #8019 | 三个索引命令在特殊路径和链接入口下缺少生成文件，链接 credits 命令意外返回成功 | Node 24.22.3 定向 27 项全部通过，完整 site 套件为 176 通过、33 失败，33 项均属于 Windows 上的 Unix installer fixture，原基线同名 33 项也失败 |
 | #7992 | 14 个技能仍被截到 40 字符档位且预算闲置，35 短描述加 8 长描述退化成只列名称 | 七项 RouterDesc 测试在独立分支及整合代码 `8a294c0cf` 上全部通过，覆盖 Unicode、80 rune 上限和名称溢出；较广的 Library 回归曾达到四分钟套件超时，其中 `TestSkillRouterUnnamedInView` 随后在整合代码上单独运行通过，耗时 214.05 秒，该单项结果不代表整个 Library 套件通过 |
 | #7870 | 本地真实 HTTP 请求中首成员的图片大小限制 400 被直接返回，下一成员请求次数为零 | 六项顶层和 26 个子测试全部通过，覆盖小图前后仍用首成员、大小图回退、不冷却、分类负例及原有通用 413 回退 |
+| #7969 | 最终 WorkBuddy 模型 fixture 在原生产代码上四项失败：audio-only TTS 被聊天列表中的候补取代，供应商次序后的 TTS 选择错误，第二账号专有模型和本地别名缺失 | 七项测试及相同七项 race 全部通过，0 跳过，覆盖禁用、Select none、用户选择、普通音频聊天负例，真实 Bun 插件宿主；转写在此基线 fixture 已通过，不虚报为另一条红测 |
 
 说明：#7777 提交正文中边界红测的 “on the base” 指作者补丁上的边界版本，原始主干复现与作者补丁补强是两个独立失败记录
 
