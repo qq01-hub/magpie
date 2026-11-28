@@ -72,6 +72,7 @@ const (
 // dshRoute is magpie's route among dsh's custom providers, and the
 // provider agent-default-model names for a model through magpie.
 const dshRoute = magpieID
+const dshStartPlugin = "@deepseek-ai/dsh-agent-default-model"
 
 // dshPiRow is the row custom providers are configured on, and its plugin.
 const (
@@ -612,7 +613,7 @@ func dshMirrorHome(dir string, models []catalog.Model, gw string, start bool) er
 		items = dshStartOnItsRoute(items, models)
 	}
 	if i := dshConfigIndex(items, "agent-default-model"); start && i >= 0 {
-		j := dshFindLast(web, "agent-default-model")
+		j := dshFindStartConfig(web)
 		switch {
 		case j >= 0 && dshOurs(web[j]):
 			if !dshOurs(items[i]) {
@@ -779,6 +780,41 @@ func dshFindLast(items []dshItem, id string) int {
 		if items[i].id == id {
 			return i
 		}
+	}
+	return -1
+}
+
+// dshFindStart is the default-model entry the config editor selects: its last
+// entry with this id, no insert list and no name or the plugin's own name.
+func dshFindStart(items []dshItem) int {
+	return dshFindStartEntry(items, false)
+}
+
+// dshFindStartConfig is dshFindStart restricted to entries that supply a
+// config. A metadata-only patch must not become a new config source or be
+// overwritten when an earlier effective entry already supplies one.
+func dshFindStartConfig(items []dshItem) int {
+	return dshFindStartEntry(items, true)
+}
+
+func dshFindStartEntry(items []dshItem, config bool) int {
+	for i := len(items) - 1; i >= 0; i-- {
+		it := items[i]
+		if it.id != "agent-default-model" {
+			continue
+		}
+		n, err := dshNodeShared(it)
+		if err != nil || yamlKey(n, "insert") != nil {
+			continue
+		}
+		if config && yamlKey(n, "config") == nil {
+			continue
+		}
+		name := yamlKey(n, "name")
+		if name != nil && (name.Kind != yaml.ScalarNode || name.Value != "" && name.Value != dshStartPlugin) {
+			continue
+		}
+		return i
 	}
 	return -1
 }
@@ -1095,7 +1131,7 @@ func dshStart(dir string, items []dshItem) string {
 func dshStartSel(dir string, items []dshItem) map[string]string {
 	sel := edit.GetYAMLMap(filepath.Join(dir, "settings.yaml"), "agent-default-model")
 	if sel["model"] == "" {
-		if i := dshFindLast(items, "agent-default-model"); i >= 0 {
+		if i := dshFindStartConfig(items); i >= 0 {
 			sel = dshConfig(items[i])
 		}
 	}
@@ -1453,7 +1489,7 @@ func dshKeepPick(f string) error {
 	if err != nil || dshOldWiring(items) {
 		return nil
 	}
-	i := dshFind(items, "agent-default-model")
+	i := dshFindStartConfig(items)
 	if i < 0 || !items[i].magpie {
 		return nil
 	}
@@ -1803,6 +1839,9 @@ func dshSetFile(path, v string, modern bool, models []catalog.Model, gw string) 
 	}
 	put := func(id string, lines []string) {
 		i := dshFind(items, id)
+		if id == "agent-default-model" {
+			i = dshFindStartConfig(items)
+		}
 		if i >= 0 && !dshOurs(items[i]) {
 			stash(map[string]string{dshStashKey(path, id): strings.Join(items[i].lines, "\n")})
 		}
@@ -1815,6 +1854,9 @@ func dshSetFile(path, v string, modern bool, models []catalog.Model, gw string) 
 	}
 	drop := func(id string) {
 		i := dshFind(items, id)
+		if id == "agent-default-model" {
+			i = dshFindStartConfig(items)
+		}
 		if i < 0 || !dshOurs(items[i]) {
 			return
 		}
@@ -2632,46 +2674,46 @@ func dshKindConfig(k dshKind, models []catalog.Model, api, gw string) dshPiRoute
 // everything else in the entry stay, and so does a start on a model magpie
 // no longer gives dsh (dshCheck says so).
 func dshStartOnItsRoute(items []dshItem, models []catalog.Model) []dshItem {
-	for i, it := range items {
-		if it.id != "agent-default-model" {
-			continue
-		}
-		c := dshConfig(it)
-		if !isDshRoute(c["provider"]) || c["model"] == "" {
-			continue
-		}
-		want, id := "", c["model"]
-		// each ref is worked out only when the one before it isn't listed:
-		// PublicRef and RenamedRef of an auto ref look at the whole catalog
-		refs := []func(string) string{
-			func(id string) string { return id },
-			provider.PublicRef,
-			provider.RenamedRef,
-			func(id string) string { return provider.PublicRef(provider.RenamedRef(id)) },
-		}
-		for _, of := range refs {
-			ref := of(c["model"])
-			for _, m := range models {
-				if m.ID == ref {
-					want, id = dshRouteOf(m), ref
-				}
-			}
-			if want != "" {
-				break
+	i := dshFindStartConfig(items)
+	if i < 0 {
+		return items
+	}
+	it := items[i]
+	c := dshConfig(it)
+	if !isDshRoute(c["provider"]) || c["model"] == "" {
+		return items
+	}
+	want, id := "", c["model"]
+	// each ref is worked out only when the one before it isn't listed:
+	// PublicRef and RenamedRef of an auto ref look at the whole catalog
+	refs := []func(string) string{
+		func(id string) string { return id },
+		provider.PublicRef,
+		provider.RenamedRef,
+		func(id string) string { return provider.PublicRef(provider.RenamedRef(id)) },
+	}
+	for _, of := range refs {
+		ref := of(c["model"])
+		for _, m := range models {
+			if m.ID == ref {
+				want, id = dshRouteOf(m), ref
 			}
 		}
-		if want == "" || want == c["provider"] && id == c["model"] {
-			continue
+		if want != "" {
+			break
 		}
-		n, err := dshNode(it)
-		if err != nil {
-			continue
-		}
-		yamlSetKey(yamlMapping(n, "config"), "provider", &yaml.Node{Kind: yaml.ScalarNode, Value: want})
-		yamlSetKey(yamlMapping(n, "config"), "model", &yaml.Node{Kind: yaml.ScalarNode, Value: id, Style: yaml.DoubleQuotedStyle})
-		if lines, err := dshNodeLines(n); err == nil {
-			items[i].lines = lines
-		}
+	}
+	if want == "" || want == c["provider"] && id == c["model"] {
+		return items
+	}
+	n, err := dshNode(it)
+	if err != nil {
+		return items
+	}
+	yamlSetKey(yamlMapping(n, "config"), "provider", &yaml.Node{Kind: yaml.ScalarNode, Value: want})
+	yamlSetKey(yamlMapping(n, "config"), "model", &yaml.Node{Kind: yaml.ScalarNode, Value: id, Style: yaml.DoubleQuotedStyle})
+	if lines, err := dshNodeLines(n); err == nil {
+		items[i].lines = lines
 	}
 	return items
 }
@@ -2841,7 +2883,7 @@ func dshCarried(v string, files []string) bool {
 			return false
 		}
 		// a start of the user's own, picked in dsh since
-		if i := dshFindLast(items, "agent-default-model"); i >= 0 && !dshOurs(items[i]) {
+		if i := dshFindStartConfig(items); i >= 0 && !dshOurs(items[i]) {
 			return false
 		}
 	}
@@ -3302,7 +3344,7 @@ func dshHome() string {
 // onto magpie's route, the model and effort kept.
 func dshMove(f string, items []dshItem, models []catalog.Model, gw string) error {
 	model := ""
-	if i := dshFindLast(items, "agent-default-model"); i >= 0 {
+	if i := dshFindStartConfig(items); i >= 0 {
 		if c := dshConfig(items[i]); c["provider"] == "deepseek-official" {
 			model = c["model"]
 		}
@@ -3367,7 +3409,7 @@ func dshFillNewProfiles(files []string, models []catalog.Model, gw string) error
 			continue
 		}
 		wired = true
-		if i := dshFindLast(items, "agent-default-model"); i >= 0 && model == "" {
+		if i := dshFindStartConfig(items); i >= 0 && model == "" {
 			if c := dshConfig(items[i]); isDshRoute(c["provider"]) {
 				model = c["model"]
 			}
@@ -3381,7 +3423,7 @@ func dshFillNewProfiles(files []string, models []catalog.Model, gw string) error
 		if err != nil {
 			continue
 		}
-		if i := dshFind(items, "agent-default-model"); model != "" && (i < 0 || dshOurs(items[i])) {
+		if i := dshFindStartConfig(items); model != "" && (i < 0 || dshOurs(items[i])) {
 			if err := dshSetFile(f, magpieID+"/"+model, true, models, gw); err != nil {
 				return err
 			}
@@ -3421,7 +3463,7 @@ func dshEffortIn(items []dshItem) string {
 // dshEffortOf is the effort sessions start with in a profile (0.1.5 on):
 // agent-default-model's, else, not yet moved, magpie's llm-deepseek's.
 func dshEffortOf(items []dshItem) string {
-	if i := dshFindLast(items, "agent-default-model"); i >= 0 {
+	if i := dshFindStartConfig(items); i >= 0 {
 		if e := dshConfig(items[i])["reasoningEffort"]; e != "" {
 			return e
 		}
@@ -3504,7 +3546,7 @@ func dshEffortWrote(f, effort string) {
 // effort is the one magpie wrote. A start magpie wrote before it kept
 // that record is taken for one with magpie's effort.
 func dshStartYields(f string, items []dshItem) []dshItem {
-	i := dshConfigIndex(items, "agent-default-model")
+	i := dshFindStartConfig(items)
 	if i < 0 || !items[i].magpie {
 		return items
 	}
@@ -3669,15 +3711,12 @@ func dshSetEffort(dir, v, gw, lead string) error {
 			if viaGateway {
 				p = route
 			}
-			if i := dshConfigIndex(items, "agent-default-model"); i >= 0 {
+			if i := dshFindStartConfig(items); i >= 0 {
 				if c := dshConfig(items[i]); c["model"] != "" && c["provider"] != "" {
 					p, m = c["provider"], c["model"]
 				}
 			}
-			i := dshConfigIndex(items, "agent-default-model")
-			if i < 0 {
-				i = dshFindLast(items, "agent-default-model")
-			}
+			i := dshFindStartConfig(items)
 			if i >= 0 && !dshOurs(items[i]) {
 				stash(map[string]string{dshStashKey(f, "agent-default-model"): strings.Join(items[i].lines, "\n")})
 			}
