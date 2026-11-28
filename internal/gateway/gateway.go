@@ -1872,6 +1872,12 @@ func cursorLocalModel(m map[string]any, e provider.Entry) {
 // which an agent's list never has, so it takes none for a model to chat
 // with. A gateway key held to some models is told of those alone, as its
 // chat list is: models it names that an account it may use serves (#2579).
+//
+// "output_modalities" restates the private "kind"/"modalities" pair in the
+// field OpenAI-compatible clients read to tell a runner from a chat model,
+// so their image pickers see these models without a hand-written list. It
+// never names text: a row that advertises text output is a chat model to
+// those readers.
 func drawerObjects(r *http.Request) []map[string]any {
 	who, held := keyListHolds(r)
 	var out []map[string]any
@@ -1887,8 +1893,9 @@ func drawerObjects(r *http.Request) []map[string]any {
 			name := cmp.Or(m.Name, m.ID)
 			o := map[string]any{"id": p.ID + "/" + m.ID, "object": "model", "type": "model", "kind": "image", "created": 0,
 				"owned_by": p.ID, "display_name": name, "magpie_label": name + " · " + p.Name,
-				"modalities": map[string]any{"input": []string{"text"}, "output": []string{"image"}},
-				"magpie_via": catalog.ViaHere(m.Via)}
+				"output_modalities": []string{"image"},
+				"modalities":        map[string]any{"input": []string{"text"}, "output": []string{"image"}},
+				"magpie_via":        catalog.ViaHere(m.Via)}
 			// the endpoints it is drawn through, in new-api's words, which
 			// Cherry Studio's new-api provider reads its kind from
 			// (listModels.ts newApiFetcher): image-generation first
