@@ -83,6 +83,7 @@ func TestPluginSignInTakesAPastedCallback(t *testing.T) {
 // The ports a sign-in page names as where it comes back to, as the
 // community plugins' pages name them.
 func TestLoopbackPorts(t *testing.T) {
+	lobsterAIPage := "https://lobsterai.youdao.com/portal#/login?source=electron&redirect_uri=" + url.QueryEscape("http://127.0.0.1:42961/auth/callback?return_to=https%3A%2F%2Flobsterai.youdao.com%2Fportal%23%2Flogin%3Fsource%3Delectron%26electronLogin%3Dsuccess") + "&state=s"
 	for page, want := range map[string]string{
 		"https://app.devin.ai/auth/cli/continue?redirect_uri=http%3A%2F%2F127.0.0.1%3A5123%2Fcallback&state=s": "5123",
 		"https://app.kiro.dev/signin?state=s&redirect_uri=http%3A%2F%2Flocalhost%3A3128&redirect_from=KiroIDE": "3128",
@@ -93,8 +94,9 @@ func TestLoopbackPorts(t *testing.T) {
 		"https://auth.huaweicloud.com/authui/login?site=intl&locale=en-us&service=" + url.QueryEscape("https://codearts.ap-southeast-1.huaweicloud.com/portal/authorize?theme=t&client_id=c&port=37093&code_challenge=x"): "37093",
 		"https://codearts.huaweicloud.com/portal/authorize?theme=t&client_id=c&port=37094&code_challenge=x":                                                                                                               "37094",
 		// Hash-routed SPAs put redirect_uri in the fragment's query (LobsterAI)
-		"https://lobsterai.youdao.com/portal#/login?source=electron&redirect_uri=" + url.QueryEscape("http://127.0.0.1:42961/auth/callback?return_to=https%3A%2F%2Flobsterai.youdao.com%2Fportal%23%2Flogin%3Fsource%3Delectron%26electronLogin%3Dsuccess") + "&state=s": "42961",
+		lobsterAIPage: "42961",
 		"https://example.com/app#/login?redirect_uri=https%3A%2F%2Fexample.com%2Fcb":       "",
+		"https://example.com/app#/login?native_app_port=7003":                              "7003",
 		"https://zcode.z.ai/x?redirect_uri=https%3A%2F%2Fzcode.z.ai%2Fapp%2Foauth%2Flogin": "",
 		"https://github.com/login/device":                                                  "",
 	} {
@@ -104,6 +106,9 @@ func TestLoopbackPorts(t *testing.T) {
 	}
 	if PluginPastesCallback("commandcode-plan", "https://commandcode.ai/studio/auth/cli?callback=http%3A%2F%2F127.0.0.1%3A4000%2Fcallback") {
 		t.Error("Command Code's page posts its key: there is no address to paste")
+	}
+	if !PluginPastesCallback("lobsterai", lobsterAIPage) {
+		t.Error("a hash-routed loopback callback is pasteable")
 	}
 }
 
