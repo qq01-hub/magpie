@@ -4844,9 +4844,6 @@ func policyRefusal(raw []byte) (string, bool) {
 	case c == "1301" && strings.Contains(msg, "敏感"):
 		// Zhipu's: "系统检测到输入或生成内容可能包含不安全或敏感内容"
 		return note("sensitive")
-	case strings.Contains(msg, "The request contains sensitive content"):
-		// InternLM's: "The request contains sensitive content. Please modify your input and try again."
-		return note("sensitive")
 	case c == "invalid_prompt" && flaggedWords.MatchString(msg):
 		return note(c)
 	case strings.TrimSpace(msg) == highRiskRefusal:
