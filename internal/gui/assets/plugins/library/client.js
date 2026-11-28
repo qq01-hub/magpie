@@ -9959,7 +9959,9 @@ magpie.plugin("library", (ctx) => {
     img.decoding = "async";
     img.loading = "lazy";
     img.referrerPolicy = "no-referrer";
-    img.src = "/api/library/icon?u=" + encodeURIComponent(url);
+    img.src = url.startsWith("file:")
+      ? "/api/icons/" + encodeURIComponent(url.slice(5))
+      : "/api/library/icon?u=" + encodeURIComponent(url);
     if (/\.svg(\?|$)/i.test(url)) box.classList.add("svg");
     // a first fetch from GitHub can fail once (magpie-community's avatar
     // showed an M on the user's first look), so it's asked once more
