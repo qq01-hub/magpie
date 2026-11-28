@@ -19,6 +19,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/tidwall/jsonc"
@@ -385,7 +386,7 @@ func imported(name, key string, e endpoints, models []string) (Provider, string)
 			continue
 		}
 		pu, err := url.Parse(u)
-		if err != nil || (pu.Scheme != "http" && pu.Scheme != "https") || pu.Host == "" || !strings.Contains(pu.Host, ".") && !strings.HasPrefix(pu.Host, "localhost") {
+		if err != nil || pu == nil || (pu.Scheme != "http" && pu.Scheme != "https") || !validImportHost(pu) {
 			return Provider{}, "its base URL isn't valid"
 		}
 		if gatewayURL(pu) {
@@ -424,6 +425,25 @@ func imported(name, key string, e endpoints, models []string) (Provider, string)
 	return p, ""
 }
 
+func validImportHost(u *url.URL) bool {
+	host := u.Hostname()
+	if host == "" {
+		return false
+	}
+	if strings.HasPrefix(u.Host, "[") && net.ParseIP(host) == nil {
+		return false
+	}
+	if port := u.Port(); port != "" {
+		n, err := strconv.Atoi(port)
+		if err != nil || n < 0 || n > 65535 {
+			return false
+		}
+	} else if strings.Contains(u.Host, ":") && !strings.HasPrefix(u.Host, "[") {
+		return false
+	}
+	return strings.Contains(host, ".") || strings.EqualFold(host, "localhost") || net.ParseIP(host) != nil || u.Port() != ""
+}
+
 func cleanBase(u string) string {
 	u = strings.TrimRight(strings.TrimSpace(u), "/")
 	if u != "" && !strings.Contains(u, "://") {
@@ -435,9 +455,12 @@ func cleanBase(u string) string {
 // gatewayURL is magpie's own address, on the port it listens on now or
 // the one Settings has: importing it would loop.
 func gatewayURL(u *url.URL) bool {
-	h := u.Hostname()
-	if h != "127.0.0.1" && h != "localhost" {
-		return false
+	h := strings.ToLower(u.Hostname())
+	if h != "localhost" {
+		ip := net.ParseIP(h)
+		if ip == nil || !ip.IsLoopback() {
+			return false
+		}
 	}
 	for _, a := range []string{settings.GatewayAddr(), settings.SavedAddr()} {
 		if _, p, err := net.SplitHostPort(a); err == nil && u.Port() == p {
