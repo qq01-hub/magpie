@@ -159,6 +159,18 @@ from the client, which is told `KAdvice`'s `server_tool_use` and
 advisor model magpie doesn't serve, go as before.
 `TestBridgeRequestKeepsTheAdvisor`, `TestClaudeTUIAdvisorAnsweredHere`.
 
+The advisor model is resolved with the original caller in `bridgeRequest`
+and `advisedInBridge`, including Desktop aliases and a Desktop Code tab's
+tier pick before restart (`advisorNamed`), as on gateway translations.
+Effort and `[1m]`/`[2m]` marks are removed before resolving either an alias
+or its tier pick, so an allowed model is still recognised with either
+context mark and an effort suffix.
+An explicit agent token or path keeps its own identity ahead of the
+Desktop Code tab's User-Agent, and key model restrictions still apply.
+`TestBridgeRequestResolvesDesktopAdvisorAliases`,
+`TestAdvisorDesktopTierPickSuffixes`,
+`TestAdvisorDesktopTierAndStandInRespectKeyModels`.
+
 A turn with `tool_choice` none is offered every tool the client sent, as
 any other turn is (bbfatx on X). Anthropic caches a prompt as tools, then
 system, then messages, so a turn offered fewer tools (a title or summary

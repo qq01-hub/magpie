@@ -90,8 +90,8 @@ func advisorAsked(from provider.Protocol, body []byte) string {
 // request a Claude subscription serves through Claude Code: the run's
 // agent is offered magpie's tools only, never Anthropic's server tool, so
 // magpie answers it whenever it serves the advisor's model.
-func advisedInBridge(from provider.Protocol, body []byte) bool {
-	adv := advisorAsked(from, body)
+func advisedInBridge(r *http.Request, from provider.Protocol, body []byte) bool {
+	adv := advisorNamed(r, advisorAsked(from, body))
 	if adv == "" {
 		return false
 	}
