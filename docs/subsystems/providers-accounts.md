@@ -109,6 +109,8 @@ keys and accounts per request is in [Gateway routing and fallback](gateway-routi
 
 When a plugin's background listing after sign-in, sign-out or a plugin change removes models from its current list, picks for models that were on the prior list are set aside in `Delisted`; hand-entered picks absent from both lists stay. A later list that includes a set-aside model restores its pick. `Fetch models` also reports set-aside ids in `dropped`, so an editor opened before a sign-out can discard its stale picks rather than saving them back. See [`OnRelisted`](../../internal/plugin/host.go), [`dropGonePluginPicks`](../../internal/provider/plugin_relist.go), [`goneKeptAside`](../../internal/provider/provider.go) and the [`models` route](../../internal/gui/providers.go).
 
+The removal and restoration path is covered by `TestRemovedKeysModelsLeaveThePicks`, including a hand-entered pick and a stale editor save; `TestPluginFetchNamesPicksSetAsideBefore` checks the Fetch models response after that background update
+
 ## Remote magpie
 
 The `remote-magpie` preset is of its own kind, `KindRemote` (`remote`), not
