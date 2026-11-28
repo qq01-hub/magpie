@@ -23,12 +23,13 @@ const codexUnverifiable = "The encrypted content KqMXgAAAAABpGZWl could not be v
 // takes with that reasoning and a call, as Grok and Codex answer a tool
 // loop. It keeps every request's input.
 type carrySealer struct {
-	name    string
-	refusal string // its words for reasoning it can't read, as a 400
-	mu      sync.Mutex
-	down    int // answering this status, for the conversation to move on
-	n       int
-	inputs  [][]map[string]any
+	name        string
+	refusal     string // its words for reasoning it can't read, as a 400
+	streamError bool   // refusing in a 200 response.failed stream as api_error
+	mu          sync.Mutex
+	down        int // answering this status, for the conversation to move on
+	n           int
+	inputs      [][]map[string]any
 }
 
 func (s *carrySealer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -54,6 +55,13 @@ func (s *carrySealer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case down != 0:
 		w.WriteHeader(down)
 		io.WriteString(w, `{"error":{"message":"Grok Build usage balance exhausted","type":"insufficient_quota"}}`)
+		return
+	case foreign && s.streamError:
+		w.Header().Set("Content-Type", "text/event-stream")
+		msg, _ := json.Marshal(s.refusal)
+		io.WriteString(w, sse(
+			`data: {"type":"response.created","response":{"id":"r-refused","model":"m"}}`,
+			`data: {"type":"response.failed","response":{"id":"r-refused","status":"failed","error":{"type":"api_error","message":`+string(msg)+`}}}`))
 		return
 	case foreign:
 		w.WriteHeader(400)
@@ -264,6 +272,64 @@ func TestForeignCarriedReasoningAskedAgainWithout(t *testing.T) {
 			}
 			if seals, _ := grok.taken(); fmt.Sprint(seals) != "[[grok]]" {
 				t.Fatalf("Grok was then sent reasoning %v, want its newest alone", seals)
+			}
+		})
+	}
+}
+
+func TestForeignCarriedReasoningAzureOtherResource(t *testing.T) {
+	for _, tc := range []struct {
+		clientStream, upstreamStream bool
+	}{{false, false}, {false, true}, {true, false}, {true, true}} {
+		t.Run(fmt.Sprintf("client_stream=%v upstream_stream=%v", tc.clientStream, tc.upstreamStream), func(t *testing.T) {
+			fresh(t)
+			grok := &carrySealer{name: "grok", refusal: xaiUndecryptable}
+			ar := &carrySealer{name: "agentrouter", streamError: tc.upstreamStream, refusal: "The requested item was created under a different Azure OpenAI resource. Use the same resource that created the item to access it. [hub-]"}
+			if tc.upstreamStream {
+				ar.refusal = azureOtherResourceMasked
+			}
+			for _, u := range []struct {
+				id   string
+				name string
+				h    http.Handler
+			}{{"grok1", "Grok (SuperGrok)", grok}, {"agentrouter", "AgentRouter", ar}} {
+				up := httptest.NewServer(u.h)
+				t.Cleanup(up.Close)
+				if err := provider.Save(provider.Provider{ID: u.id, Name: u.name, Key: "k-" + u.id, Models: []string{"m"}, Responses: up.URL + "/v1"}); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if err := provider.SaveGroup(provider.Group{Name: "grok-codex", Members: []string{"grok1/m", "agentrouter/m"}, Routing: provider.Ordered}); err != nil {
+				t.Fatal(err)
+			}
+			s := New()
+			c := &carryClient{from: provider.Anthropic, stream: tc.clientStream}
+			if code, body := c.ask(t, s); code != 200 {
+				t.Fatalf("first turn: %d %s", code, body)
+			}
+			if _, items := unreasonedID(c.calls[0]); len(items) != 1 {
+				t.Fatalf("the call's id %q carries %d items", c.calls[0], len(items))
+			}
+			grok.taken()
+			grok.mu.Lock()
+			grok.down = http.StatusPaymentRequired
+			grok.mu.Unlock()
+			if code, body := c.ask(t, s); code != 200 {
+				t.Fatalf("after the switch: %d %s", code, body)
+			}
+			seals, calls := ar.taken()
+			if fmt.Sprint(seals) != "[[grok] []]" {
+				t.Fatalf("AgentRouter was sent reasoning %v, want the old resource's, then none", seals)
+			}
+			want := []string{`call_grok_1 {"cmd":"cat a.txt"}`, "call_grok_1 -> 1 2 3"}
+			if len(calls) != 4 || calls[0] != want[0] || calls[1] != want[1] || calls[2] != want[0] || calls[3] != want[1] {
+				t.Fatalf("AgentRouter was sent calls %q, want the same exchange twice", calls)
+			}
+			if code, body := c.ask(t, s); code != 200 {
+				t.Fatalf("next turn: %d %s", code, body)
+			}
+			if seals, _ := ar.taken(); fmt.Sprint(seals) != "[[agentrouter]]" {
+				t.Fatalf("AgentRouter was then sent reasoning %v, want its own alone", seals)
 			}
 		})
 	}
