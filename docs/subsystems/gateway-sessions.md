@@ -171,6 +171,12 @@ project move rewrites `relocatedCwd` and judges the session by its last
 move. See `TestClaudeCdListedUnderNewFolder` and the fixtures in
 `internal/sessions/testdata/claude-cd` (Claude Code 2.1.316's own lines,
 usrname1833 on Discord).
+Claude Code fork subagent files open with `fork-context-ref` and copy their
+parent's reply before the fork's first user line. The native session and stats
+readers skip those assistant copies, then count the fork's own replies as before
+(`claudeLine`, `claudeFull`, `StateMore.ForkHead`). The flag survives a cached
+parse resumed within that head, and Claude's parser version invalidates older
+counts; ordinary subagents without the marker keep all their replies (#3735)
 Gateway projections have no path,
 resume command or terminal action: the agent's own files of them are not on
 this computer. Their rows carry `gateway: true`; the Sessions page groups them

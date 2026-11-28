@@ -249,10 +249,6 @@ type state struct {
 	MsgModel string `json:"msg_model,omitempty"`
 	MsgUse   Tokens `json:"msg_use"`
 	MsgDay   string `json:"msg_day,omitempty"`
-	// Claude Code: in a fork subagent's file, between its fork-context-ref
-	// line and its first prompt, where the reply that started the fork is
-	// copied from the parent's file, which counts it
-	ForkHead bool `json:"fork_head,omitempty"`
 	// Codex: the model in use, and its running total (input with cache) last seen
 	Model string  `json:"model,omitempty"`
 	Total *Tokens `json:"total,omitempty"`
@@ -286,6 +282,9 @@ type StateMore struct {
 	Task     string     `json:"task,omitempty"`
 	TaskRead bool       `json:"task_read,omitempty"`
 	SubMeta  *ccSubMeta `json:"sub_meta,omitempty"`
+	// Claude Code: before a fork subagent's first prompt, where its
+	// assistant messages copy the parent's reply (fork-context-ref)
+	ForkHead bool `json:"fork_head,omitempty"`
 	// ResponseIDs are the ids of the replies its own requests got, as the
 	// gateway wrote them on its routes and the agent kept them with the
 	// reply (dsh's replay state): they name a request after the fact, where
@@ -360,7 +359,7 @@ func moreOf(m StateMore) *StateMore {
 func (m *StateMore) zero() bool {
 	return m == nil || m.DBRevision == "" && !m.CodexIdentityConflict && m.CodexNickname == "" &&
 		len(m.CodexSpawnNames) == 0 && len(m.CodexSpawnConflicts) == 0 && len(m.CodexAgentIDs) == 0 &&
-		len(m.CodexAgentConflicts) == 0 && m.Named == "" && m.Custom == "" && m.First == "" && m.Task == "" && !m.TaskRead && m.SubMeta == nil &&
+		len(m.CodexAgentConflicts) == 0 && m.Named == "" && m.Custom == "" && m.First == "" && m.Task == "" && !m.TaskRead && m.SubMeta == nil && !m.ForkHead &&
 		len(m.Convs) == 0 && len(m.ResponseIDs) == 0 && len(m.SeedConvs) == 0 && len(m.TurnConvs) == 0 &&
 		m.Root == "" && m.Leaf == "" && len(m.Compacts) == 0 && m.Since.IsZero() &&
 		m.Grok == nil && m.Droid == nil && m.Kimi == nil && m.Agy == nil && m.Dsh == nil && m.Cline == nil

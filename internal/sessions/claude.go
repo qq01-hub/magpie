@@ -53,6 +53,7 @@ var (
 	ccSummary   = []byte(`"type":"summary"`)
 	ccCwd       = []byte(`"cwd":"`)
 	ccEntry     = []byte(`"entrypoint":"`)
+	ccFork      = []byte(`"fork-context-ref"`)
 )
 
 var (
@@ -85,7 +86,7 @@ func claudeLine(s *state, b []byte, main bool) {
 		case "fork-context-ref":
 			// a fork subagent's file: the reply before its first prompt
 			// is its parent's, copied
-			s.ForkHead = true
+			s.own().ForkHead = true
 			s.saw(tsAt(b, true), main)
 			return
 		default:
@@ -112,11 +113,13 @@ func claudeLine(s *state, b []byte, main bool) {
 		s.saw(at, main)
 		ccWhere(s, b)
 		ccLink(s, h, b, main)
-		if !s.ForkHead {
+		if !s.more().ForkHead {
 			ccReply(s, at, msg, b, main)
 		}
 	case bytes.HasPrefix(msg, ccRole) && typeAfter(msg, ccRole) == "user":
-		s.ForkHead = false
+		if s.more().ForkHead {
+			s.own().ForkHead = false
+		}
 		if (main || !s.more().TaskRead) && !ccToolResult(msg) {
 			// a prompt, or something Claude Code put in: read whole
 			claudeFull(s, b, main)
@@ -379,11 +382,11 @@ func ccReply(s *state, at time.Time, msg, b []byte, main bool) {
 func claudeFull(s *state, b []byte, main bool) {
 	at := tsAt(b, true)
 	s.saw(at, main)
-	want := bytes.Contains(b, ccAssistant) ||
+	want := s.more().ForkHead || bytes.Contains(b, ccAssistant) ||
 		main && bytes.Contains(b, ccUser) ||
 		!main && !s.more().TaskRead && bytes.Contains(b, ccUser) ||
 		main && (bytes.Contains(b, ccTitle) || bytes.Contains(b, ccCustom) || bytes.Contains(b, ccSummary)) ||
-		s.Cwd == "" && bytes.Contains(b, ccCwd)
+		s.Cwd == "" && bytes.Contains(b, ccCwd) || bytes.Contains(b, ccFork)
 	if !want {
 		return
 	}
@@ -410,6 +413,8 @@ func claudeFull(s *state, b []byte, main bool) {
 		}
 	}
 	switch l.Type {
+	case "fork-context-ref":
+		s.own().ForkHead = true
 	case "ai-title":
 		if l.AITitle != "" {
 			s.own().Named = title(l.AITitle)
@@ -424,7 +429,9 @@ func claudeFull(s *state, b []byte, main bool) {
 			s.own().Named = title(l.Summary)
 		}
 	case "user":
-		s.ForkHead = false
+		if s.more().ForkHead {
+			s.own().ForkHead = false
+		}
 		if !main && !l.IsMeta && !s.more().TaskRead {
 			// the subagent's task, as ccTask reads it
 			s.own().Task, s.own().TaskRead = untagged(ccText(l.Message.Content)), true
@@ -442,7 +449,7 @@ func claudeFull(s *state, b []byte, main bool) {
 			}
 		}
 	case "assistant":
-		if s.ForkHead {
+		if s.more().ForkHead {
 			return
 		}
 		m := ccUsageState(&s.Claude).message(l.Message.ID, string(l.RequestID))
