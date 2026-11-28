@@ -5002,6 +5002,12 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request, from provider.Pro
 			break
 		}
 		hw.settle()
+		if !hw.passing && !hw.refused && hw.code() >= 400 &&
+			(pluginEmptyReply(hw.held.Bytes()) || pluginEmptyReply([]byte(hw.failMsg))) {
+			// A plugin's structured empty reply is the core's emptyReply:
+			// asked again once, not with a busy vendor's budget (#7072).
+			hw.failure, hw.failMsg = hw.code(), emptyReply
+		}
 		if hw.handedOver {
 			// its refusal came after its reasoning went to the agent: the
 			// next try's stream follows it as the same reply
@@ -5986,7 +5992,7 @@ func (s *Server) serve(w http.ResponseWriter, r *http.Request, from provider.Pro
 		// (spentAfter) and the agent is told theirs
 		lastSpent := last && isGroup && len(busyNow) > 0 && !hw.passing && hw.failed() && !busyFor(c, hw.code(), hw.errBody()) &&
 			slices.Contains([]string{failQuota, failCredit}, failure(hw.code(), hw.errBody())) && !spentAfter([]candidate{c})
-		if _, same := passingFor(c, hw.code(), hw.header, hw.errBody(), again); last && patience > 0 && !protected && !sameRefusal && !hw.turnedAway && !hw.refused && hw.failed() && (busyFor(c, hw.code(), hw.errBody()) && (!routedThere(hw.header) || len(busyNow) > 0) || lastSpent) &&
+		if _, same := passingFor(c, hw.code(), hw.header, hw.errBody(), again); last && patience > 0 && !protected && !sameRefusal && !hw.turnedAway && !hw.refused && hw.failed() && !strings.Contains(call.Error, emptyReply) && (busyFor(c, hw.code(), hw.errBody()) && (!routedThere(hw.header) || len(busyNow) > 0) || lastSpent) &&
 			(isGroup || !codexReset(hw.code(), hw.errBody())) &&
 			(len(busyNow) > 0 || waitsOf(c.patience, patienceFallback) > 0 && !same) {
 			// every member has failed, each in a way that passes — busy,
@@ -10545,6 +10551,16 @@ func (s *Server) translate(w http.ResponseWriter, r *http.Request, p provider.Pr
 
 // emptyReply is what a reply that says nothing fails with.
 const emptyReply = "an empty reply (the model answered nothing; try again)"
+
+// pluginEmptyReply says whether a provider plugin's reply is a structured
+// empty reply: an error whose diagnostics.kind is "empty", a stream that
+// completed with no content block. The plugin's wording is its own; this
+// code is the contract, so the gateway reads it as emptyReply whatever
+// words the plugin wraps it in. body is the reply as it came, JSON or an
+// in-stream error frame.
+func pluginEmptyReply(body []byte) bool {
+	return bodyHas(body, `"kind":"empty"`)
+}
 
 // emptyReplyFailed is what p's reply that said nothing fails with: the
 // empty reply's error, and, when its usage counted output tokens, how
